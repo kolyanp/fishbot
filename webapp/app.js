@@ -421,7 +421,7 @@ async function initGlobalMap() {
                         <p style="margin: 2px 0 0 0; font-size:12px;">⚖️ ${c.weight} кг</p>
                         <p style="margin: 2px 0 0 0; font-size:11px; opacity:0.8;">📍 ${c.location}</p>
                         <p style="margin: 2px 0 0 0; font-size:11px; opacity:0.8;">📅 ${date}</p>
-                        <button onclick="document.querySelectorAll('.tab-content').forEach(el=>el.classList.remove('active')); document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active')); document.getElementById('tab-chat').classList.add('active'); document.querySelector('.nav-item[data-target=\'tab-chat\']').classList.add('active'); document.getElementById('chat-input').value='@${c.username.replace('@', '')}, '; document.getElementById('chat-input').focus(); loadChat();" style="margin-top: 8px; width: 100%; background: #3b82f6; color: white; border: none; padding: 5px; border-radius: 5px; cursor: pointer; font-size: 12px;">Написати 💬</button>
+                        <button onclick="window.openChatWith('${c.username}')" style="margin-top: 8px; width: 100%; background: #3b82f6; color: white; border: none; padding: 5px; border-radius: 5px; cursor: pointer; font-size: 12px;">Написати 💬</button>
                     </div>
                 `;
                 
@@ -454,6 +454,23 @@ document.querySelector('[data-target="tab-map"]').addEventListener('click', init
 setTimeout(initGlobalMap, 500);
 
 // --- CHAT LOGIC ---
+window.openChatWith = function(username) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    
+    document.getElementById('tab-chat').classList.add('active');
+    document.querySelector('.nav-item[data-target="tab-chat"]').classList.add('active');
+    
+    const input = document.getElementById('chat-input');
+    input.value = '@' + username.replace('@', '') + ', ';
+    input.focus();
+    
+    loadChat();
+    if (!chatInterval) {
+        chatInterval = setInterval(loadChat, 3000);
+    }
+};
+
 let chatInterval = null;
 
 async function loadChat() {
