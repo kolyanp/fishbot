@@ -563,7 +563,7 @@ document.getElementById('chat-send-btn').addEventListener('click', async () => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 user_id: user_id,
-                sig: getQueryParam('sig'),
+                sig: new URLSearchParams(window.location.search).get('sig'),
                 text: text
             })
         });
