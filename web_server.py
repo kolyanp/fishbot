@@ -130,7 +130,8 @@ async def api_catch(request):
     return web.json_response({"success": True})
 
 async def start_web_server(port: int = 8080):
-    app = web.Application()
+    # Set max upload size to 20MB for photos
+    app = web.Application(client_max_size=1024 * 1024 * 20)
     
     # Setup CORS
     cors = aiohttp_cors.setup(app, defaults={
