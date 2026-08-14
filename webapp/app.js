@@ -368,7 +368,7 @@ async function fetchForecast(lat, lon) {
     document.getElementById('forecast-controls').style.display = 'none';
     
     try {
-        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,wind_speed_10m,surface_pressure`;
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,wind_speed_10m,surface_pressure&daily=temperature_2m_max,temperature_2m_min,wind_speed_10m_max,precipitation_sum&past_days=1&forecast_days=2&wind_speed_unit=ms&timezone=auto`;
         const response = await fetch(url);
         const data = await response.json();
         
@@ -377,54 +377,106 @@ async function fetchForecast(lat, lon) {
         // Convert hPa to mm Hg
         const pressure = Math.round(data.current.surface_pressure * 0.750062);
         
-        // Algorithm
-        let score = 5;
+        // --- ADVICE ALGORITHM (Current Weather) ---
         let advice = [];
+        if (temp >= 10 && temp <= 25) advice.push("✅ Температура комфортна для риболовлі.");
+        else if (temp > 25) advice.push("⚠️ Спекотно, риба ховається на глибині.");
+        else advice.push("⚠️ Досить холодно, риба може бути малоактивною.");
         
-        if (temp >= 10 && temp <= 25) {
-            score += 2;
-            advice.push("✅ Комфортна температура для риболовлі.");
-        } else if (temp > 25) {
-            score -= 1;
-            advice.push("⚠️ Занадто спекотно, риба може ховатися на глибині.");
-        } else {
-            score -= 1;
-            advice.push("⚠️ Досить холодно, риба може бути малоактивною.");
+        if (wind < 3) advice.push("✅ Слабкий вітер, ідеально для закидання.");
+        else if (wind > 6) advice.push("❌ Сильний вітер, буде складно закидати та бачити покльовку.");
+        
+        if (pressure >= 745 && pressure <= 765) advice.push("✅ Стабільний оптимальний тиск.");
+        else advice.push("⚠️ Тиск виходить за межі оптимального.");
+        
+        // --- BITING SCALES ALGORITHM ---
+        function calcBiteScores(tMax, tMin, wMax, precip) {
+            let peaceful = 5;
+            let predator = 5;
+            
+            let avgTemp = (tMax + tMin) / 2;
+            
+            // Peaceful fish (carps, etc) love warm, calm
+            if (avgTemp > 15 && avgTemp < 28) peaceful += 3;
+            else if (avgTemp > 28) peaceful -= 2;
+            else peaceful -= 2;
+            
+            // Predators (pike, etc) love cooler, active weather
+            if (avgTemp > 10 && avgTemp < 22) predator += 2;
+            else if (avgTemp > 25) predator -= 3;
+            
+            // Rain
+            if (precip > 0 && precip < 5) { predator += 2; peaceful += 1; }
+            else if (precip >= 5) { peaceful -= 3; predator -= 1; }
+            
+            // Wind
+            if (wMax < 5) { peaceful += 2; predator += 1; }
+            else if (wMax > 8) { peaceful -= 2; predator -= 1; }
+            
+            return {
+                peaceful: Math.min(10, Math.max(1, Math.round(peaceful))),
+                predator: Math.min(10, Math.max(1, Math.round(predator)))
+            };
+        }
+
+        const daily = data.daily;
+        // daily.time array has 3 items: yesterday [0], today [1], tomorrow [2]
+        
+        let scores = [];
+        for(let i = 0; i < 3; i++) {
+            let s = calcBiteScores(
+                daily.temperature_2m_max[i], 
+                daily.temperature_2m_min[i], 
+                daily.wind_speed_10m_max[i], 
+                daily.precipitation_sum[i]
+            );
+            // Average total score for the general chart
+            let avgScore = Math.round((s.peaceful + s.predator) / 2);
+            scores.push({
+                peaceful: s.peaceful,
+                predator: s.predator,
+                total: avgScore
+            });
         }
         
-        if (wind < 3) {
-            score += 1;
-            advice.push("✅ Слабкий вітер, ідеально для закидання.");
-        } else if (wind > 6) {
-            score -= 2;
-            advice.push("❌ Сильний вітер, буде складно закидати та бачити покльовку.");
-        }
+        // Today's scores for the detailed scales
+        const todayScores = scores[1];
         
-        if (pressure >= 745 && pressure <= 765) {
-            score += 2;
-            advice.push("✅ Стабільний оптимальний тиск.");
-        } else {
-            score -= 1;
-            advice.push("⚠️ Тиск виходить за межі оптимального.");
-        }
-        
-        if (score > 10) score = 10;
-        if (score < 1) score = 1;
-        
-        // Update UI
+        // Update basic weather UI
         document.getElementById('res-temp').innerText = `${temp}°C`;
         document.getElementById('res-wind').innerText = `${wind} м/с`;
         document.getElementById('res-pressure').innerText = `${pressure} мм`;
-        document.getElementById('res-score').innerText = score;
         
         const adviceBox = document.getElementById('res-advice');
         adviceBox.innerHTML = advice.join('<br><br>');
         
-        // Color the circle based on score
-        const circle = document.querySelector('.score-circle');
-        if (score >= 8) circle.style.background = '#059669'; // Green
-        else if (score >= 5) circle.style.background = '#d97706'; // Orange
-        else circle.style.background = '#dc2626'; // Red
+        // Update detailed scales for TODAY
+        const pBar = document.getElementById('bar-peaceful');
+        const pScore = document.getElementById('score-peaceful');
+        const prBar = document.getElementById('bar-predator');
+        const prScore = document.getElementById('score-predator');
+        
+        pScore.innerText = `${todayScores.peaceful}/10`;
+        pBar.style.width = `${todayScores.peaceful * 10}%`;
+        pBar.style.background = todayScores.peaceful >= 7 ? '#059669' : (todayScores.peaceful >= 4 ? '#d97706' : '#dc2626');
+        
+        prScore.innerText = `${todayScores.predator}/10`;
+        prBar.style.width = `${todayScores.predator * 10}%`;
+        prBar.style.background = todayScores.predator >= 7 ? '#059669' : (todayScores.predator >= 4 ? '#d97706' : '#dc2626');
+        
+        // Update Chart (Yesterday, Today, Tomorrow)
+        for(let i=0; i<3; i++) {
+            let bar = document.getElementById(`chart-bar-${i}`);
+            let val = document.getElementById(`chart-val-${i}`);
+            let score = scores[i].total;
+            
+            val.innerText = score;
+            // timeout for animation effect
+            setTimeout(() => {
+                bar.style.height = `${score * 10}%`;
+                bar.style.background = score >= 7 ? '#0ea5e9' : (score >= 4 ? '#38bdf8' : '#94a3b8');
+            }, 100);
+        }
         
         loading.style.display = 'none';
         results.style.display = 'block';

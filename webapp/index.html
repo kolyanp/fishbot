@@ -139,15 +139,54 @@
                                 <span class="w-val" id="res-pressure">-- мм рт.ст.</span>
                             </div>
                         </div>
-                        
                         <div class="score-card">
-                            <h3>Оцінка умов</h3>
-                            <div class="score-circle">
-                                <span id="res-score">10</span><small>/10</small>
+                            <h3 style="margin-bottom: 15px;">Кльов (сьогодні)</h3>
+                            
+                            <div class="fish-scales" style="display: flex; flex-direction: column; gap: 15px;">
+                                <div class="fish-scale">
+                                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                                        <span class="fs-label" style="font-size: 14px; font-weight: 600;">🐟 Мирна (карась, короп)</span>
+                                        <span class="fs-score" id="score-peaceful" style="font-weight: bold;">5/10</span>
+                                    </div>
+                                    <div class="fs-bar-bg" style="background: #e2e8f0; height: 10px; border-radius: 5px; overflow: hidden;">
+                                        <div class="fs-bar" id="bar-peaceful" style="height: 100%; width: 50%; background: #059669; transition: width 0.5s ease;"></div>
+                                    </div>
+                                </div>
+                                
+                                <div class="fish-scale">
+                                    <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                                        <span class="fs-label" style="font-size: 14px; font-weight: 600;">🦈 Хижа (щука, судак)</span>
+                                        <span class="fs-score" id="score-predator" style="font-weight: bold;">5/10</span>
+                                    </div>
+                                    <div class="fs-bar-bg" style="background: #e2e8f0; height: 10px; border-radius: 5px; overflow: hidden;">
+                                        <div class="fs-bar" id="bar-predator" style="height: 100%; width: 50%; background: #d97706; transition: width 0.5s ease;"></div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
-                        <div class="advice-box" id="res-advice">
+                        <div class="score-card" style="margin-top: 15px;">
+                            <h3 style="margin-bottom: 15px;">Графік кльову (загальний)</h3>
+                            <div class="chart-container" style="display: flex; justify-content: space-around; align-items: flex-end; height: 120px; padding-bottom: 25px; position: relative;">
+                                <div class="chart-col" style="display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; position: relative;">
+                                    <span class="col-val" id="chart-val-0" style="margin-bottom: 5px; font-size: 14px; font-weight: bold;">--</span>
+                                    <div class="col-bar" id="chart-bar-0" style="width: 30px; height: 0%; background: #94a3b8; border-radius: 5px 5px 0 0; transition: height 0.5s ease;"></div>
+                                    <span class="col-lbl" style="position: absolute; bottom: -25px; font-size: 12px; color: #475569;">Вчора</span>
+                                </div>
+                                <div class="chart-col" style="display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; position: relative;">
+                                    <span class="col-val" id="chart-val-1" style="margin-bottom: 5px; font-size: 14px; font-weight: bold; color: #0ea5e9;">--</span>
+                                    <div class="col-bar" id="chart-bar-1" style="width: 30px; height: 0%; background: #0ea5e9; border-radius: 5px 5px 0 0; box-shadow: 0 0 10px rgba(14, 165, 233, 0.5); transition: height 0.5s ease;"></div>
+                                    <span class="col-lbl" style="position: absolute; bottom: -25px; font-size: 12px; font-weight: bold; color: #0ea5e9;">Сьогодні</span>
+                                </div>
+                                <div class="chart-col" style="display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; position: relative;">
+                                    <span class="col-val" id="chart-val-2" style="margin-bottom: 5px; font-size: 14px; font-weight: bold;">--</span>
+                                    <div class="col-bar" id="chart-bar-2" style="width: 30px; height: 0%; background: #94a3b8; border-radius: 5px 5px 0 0; transition: height 0.5s ease;"></div>
+                                    <span class="col-lbl" style="position: absolute; bottom: -25px; font-size: 12px; color: #475569;">Завтра</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="advice-box" id="res-advice" style="margin-top: 25px;">
                             <!-- Advice lines will be appended here -->
                         </div>
                     </div>
