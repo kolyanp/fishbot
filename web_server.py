@@ -14,6 +14,24 @@ from database.models import User, CatchLog, ChatMessage
 
 logger = logging.getLogger(__name__)
 
+bot_username = None
+
+async def init_bot_info():
+    global bot_username
+    try:
+        import aiohttp
+        async with aiohttp.ClientSession() as session:
+            async with session.get(f"https://api.telegram.org/bot{BOT_TOKEN}/getMe") as resp:
+                data = await resp.json()
+                if data.get('ok'):
+                    bot_username = data['result']['username']
+                    print(f"Loaded bot username: {bot_username}")
+    except Exception as e:
+        print(f"Failed to fetch bot info: {e}")
+
+async def api_bot_info(request):
+    return web.json_response({"username": bot_username})
+
 def validate_secure_url(user_id: str, sig: str) -> bool:
     if not user_id or not sig:
         return False
@@ -735,6 +753,8 @@ async def api_auth_telegram(request):
 
 
 async def start_web_server(port: int = 8080):
+    await init_bot_info()
+    
     # Set max upload size to 20MB for photos
     app = web.Application(client_max_size=1024 * 1024 * 20)
     
@@ -761,6 +781,7 @@ async def start_web_server(port: int = 8080):
     cors.add(app.router.add_post('/api/moderate', api_moderate))
     cors.add(app.router.add_get('/api/leaderboard', api_leaderboard))
     cors.add(app.router.add_post('/api/like', api_like))
+    cors.add(app.router.add_get('/api/bot_info', api_bot_info))
     
     # Path to directories
     current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -781,6 +802,9 @@ async def start_web_server(port: int = 8080):
             from config import GOOGLE_CLIENT_ID
             if GOOGLE_CLIENT_ID:
                 content = content.replace("YOUR_GOOGLE_CLIENT_ID", GOOGLE_CLIENT_ID)
+            global bot_username
+            if bot_username:
+                content = content.replace("INSERT_YOUR_BOT_USERNAME_HERE", bot_username)
             return web.Response(text=content, content_type='text/html')
         except Exception as e:
             logger.error(f"Error serving index.html: {e}")
