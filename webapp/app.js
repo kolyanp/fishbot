@@ -3,6 +3,14 @@ const API_URL = "https://api.parafiivka.com.ua";
 try { tg.expand(); } catch(e) {}
 try { tg.ready(); } catch(e) {}
 
+window.customAlert = function(msg) {
+    if (tg && typeof tg.showAlert === 'function') {
+        tg.showAlert(msg);
+    } else {
+        alert(msg);
+    }
+};
+
 let appState = {
     isGuest: false,
     guestNickname: localStorage.getItem('fishapp_guest_nickname'),
@@ -45,9 +53,6 @@ function getAuthBody() {
 
 
 
-// Apply Telegram theme colors dynamically if they exist
-document.documentElement.style.setProperty('--text-color', tg.themeParams.text_color || '#0f172a');
-// Background is our beautiful gradient, so we ignore Telegram's bg_color
 
 function checkBan(data) {
     if (data && data.is_banned) {
@@ -317,13 +322,13 @@ form.addEventListener('submit', async (e) => {
         });
         
         if (res.ok) {
-            tg.showAlert("✅ Улов успішно збережено!");
+            customAlert("✅ Улов успішно збережено!");
             form.reset();
         } else {
-            tg.showAlert("❌ Помилка збереження (перевірте налаштування домену)");
+            customAlert("❌ Помилка збереження (перевірте налаштування домену)");
         }
     } catch (err) {
-        tg.showAlert("❌ Помилка мережі (перевірте налаштування домену)");
+        customAlert("❌ Помилка мережі (перевірте налаштування домену)");
     }
     
     submitBtn.innerText = "Зберегти улов";
@@ -883,7 +888,7 @@ window.moderateUser = async function(action) {
         
         if (res.ok) {
             document.getElementById('mod-modal').style.display = 'none';
-            tg.showAlert("Дію виконано!");
+            customAlert("Дію виконано!");
             loadChat();
         } else {
             const err = await res.json();
@@ -934,7 +939,7 @@ window.deleteCatch = async function(id) {
             // Reload history and map
             document.querySelector('[data-target="tab-history"]').click();
             if (catchesMap) initGlobalMap(); // reload map
-            tg.showAlert("Улов видалено!");
+            customAlert("Улов видалено!");
         } else {
             alert("Помилка видалення");
         }
@@ -1011,7 +1016,7 @@ window.likeCatch = async (catchId, event, btnElement) => {
             }
         }
     } catch (e) {
-        tg.showAlert("Помилка оцінки фото");
+        customAlert("Помилка оцінки фото");
     }
 };
 
