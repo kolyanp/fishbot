@@ -1,7 +1,7 @@
 {
-  "name": "\u0429\u043e\u0434\u0435\u043d\u043d\u0438\u043a \u0440\u0438\u0431\u0430\u043b\u043a\u0438",
-  "short_name": "\u0420\u0438\u0431\u0430\u043b\u043a\u0430",
-  "description": "\u0414\u043e\u0434\u0430\u0442\u043e\u043a \u0434\u043b\u044f \u0440\u0438\u0431\u0430\u043b\u043e\u043a",
+  "name": "Щоденник рибалки",
+  "short_name": "Рибалка",
+  "description": "Додаток для рибалок",
   "start_url": "/index.html",
   "display": "standalone",
   "background_color": "#0ea5e9",
@@ -30,18 +30,46 @@
   "orientation": "portrait",
   "screenshots": [
     {
-      "src": "/icon-512-v3.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "form_factor": "wide",
-      "label": "Fishing App"
-    },
-    {
-      "src": "/icon-512-v3.png",
-      "sizes": "512x512",
+      "src": "/Scrin1.png",
+      "sizes": "591x1218",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "Fishing App"
+      "label": "Скріншот 1"
+    },
+    {
+      "src": "/Scrin2.png",
+      "sizes": "591x1218",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Скріншот 2"
+    },
+    {
+      "src": "/Scrin3.png",
+      "sizes": "591x1218",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Скріншот 3"
+    },
+    {
+      "src": "/Scrin4.png",
+      "sizes": "591x1218",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Скріншот 4"
+    },
+    {
+      "src": "/Scrin5.png",
+      "sizes": "591x1218",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Скріншот 5"
+    },
+    {
+      "src": "/Scrin6.png",
+      "sizes": "591x1218",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Скріншот 6"
     }
   ]
 }
