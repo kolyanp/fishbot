@@ -66,7 +66,6 @@ document.querySelector('[data-target="tab-history"]').addEventListener('click', 
     try {
         const queryStr = window.location.search; // Contains ?user_id=...&sig=...
         const res = await fetch(`${API_URL}/api/history${queryStr}`);
-        const res = await fetch(`${API_URL}/api/history${queryStr}`);
         if (!res.ok) throw new Error("API error");
         const data = await res.json();
         
@@ -481,13 +480,11 @@ async function initGlobalMap() {
                 
                 L.marker([c.lat, c.lon]).addTo(catchesMap).bindPopup(popupContent);
                 bounds.extend([c.lat, c.lon]);
-            }
-        });
-        
-        if (hasPins) {
-            // Keep map zoomed out to show all of Ukraine
-            catchesMap.setView([48.3794, 31.1656], 5);
+            });
+            
+            // Map shows all catches
         }
+        } catch (e) { console.error(e); }
     }
 }
 
