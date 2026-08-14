@@ -709,16 +709,17 @@ async function sendChatMessage() {
     const sig = urlParams.get('sig');
     
     try {
+        let res;
         if (msgId) {
             // Edit
-            await fetch(`${API_URL}/api/chat`, {
+            res = await fetch(`${API_URL}/api/chat`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ user_id, sig, text, msg_id: msgId })
             });
         } else {
             // Send new
-            await fetch(`${API_URL}/api/chat`, {
+            res = await fetch(`${API_URL}/api/chat`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ user_id, sig, text })
