@@ -430,7 +430,8 @@ async function initGlobalMap() {
         });
         
         if (hasPins) {
-            catchesMap.fitBounds(bounds, { padding: [20, 20], maxZoom: 14 });
+            // Keep map zoomed out to show all of Ukraine
+            catchesMap.setView([48.3794, 31.1656], 5);
         }
     }
 }
