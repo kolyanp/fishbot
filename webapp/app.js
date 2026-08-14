@@ -1231,3 +1231,34 @@ window.onTelegramWidgetAuth = async function(user) {
         alert("Помилка з'єднання");
     }
 };
+
+// --- FIX KEYBOARD OBSCURING BOTTOM NAV ON MOBILE ---
+(function() {
+    const originalHeight = window.innerHeight;
+    const bottomNav = document.querySelector('.bottom-nav');
+    if (!bottomNav) return;
+    
+    window.addEventListener('resize', () => {
+        // If the window height decreases by more than 100px, 
+        // it's highly likely the virtual keyboard was opened.
+        if (window.innerHeight < originalHeight - 100) {
+            bottomNav.style.display = 'none';
+        } else {
+            bottomNav.style.display = 'flex';
+        }
+    });
+    
+    // Also use focus/blur events on input and textarea as a fallback
+    document.addEventListener('focusin', (e) => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+            bottomNav.style.display = 'none';
+        }
+    });
+    document.addEventListener('focusout', (e) => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+            setTimeout(() => {
+                bottomNav.style.display = 'flex';
+            }, 100);
+        }
+    });
+})();
