@@ -7,7 +7,7 @@ import hmac
 import hashlib
 from urllib.parse import parse_qsl
 from sqlalchemy.future import select
-from config import BOT_TOKEN
+from config import BOT_TOKEN, ADMIN_ID
 from database.engine import async_session
 from database.models import User, CatchLog, ChatMessage
 
@@ -56,7 +56,10 @@ async def api_history(request):
             "photo_url": f"/{c.photo_id}" if c.photo_id else None
         } for c in catches]
         
-    return web.json_response(data)
+    return web.json_response({
+        "is_admin": tg_id == ADMIN_ID,
+        "catches": data
+    })
 
 async def api_global_map(request):
     user_id = request.query.get('user_id', '')
@@ -89,7 +92,10 @@ async def api_global_map(request):
             "username": c.user.username if c.user.username else f"Рибалка {c.user.telegram_id}"
         } for c in catches]
         
-    return web.json_response(data)
+    return web.json_response({
+        "is_admin": int(user_id) == ADMIN_ID if user_id.isdigit() else False,
+        "catches": data
+    })
 
 async def api_catch(request):
     # Process multipart form data
@@ -104,6 +110,7 @@ async def api_catch(request):
     lat = None
     lon = None
     photo_data = None
+    catch_id = None
     
     while True:
         field = await reader.next()
@@ -136,11 +143,15 @@ async def api_catch(request):
             if val: lon = float(val.decode())
         elif field.name == 'photo' and field.filename:
             photo_data = await field.read()
+        elif field.name == 'catch_id':
+            val = await field.read(decode=True)
+            if val: catch_id = int(val.decode())
 
     if not validate_secure_url(user_id_str, sig):
         return web.json_response({"error": "Unauthorized"}, status=401)
         
     tg_id = int(user_id_str)
+    is_admin = (tg_id == ADMIN_ID)
     username = f"user_{tg_id}" # Fallback since we don't get username in URL
     
     # Save photo (For simplicity, we save it locally for now)
@@ -160,17 +171,88 @@ async def api_catch(request):
             await session.commit()
             await session.refresh(user)
             
-        new_log = CatchLog(
-            user_id=user.id,
-            fish_species=species,
-            weight=weight,
-            bait=bait,
-            location=location,
-            lat=lat,
-            lon=lon,
-            photo_id=photo_path
-        )
-        session.add(new_log)
+        if catch_id:
+            # Edit existing catch
+            result = await session.execute(select(CatchLog).filter_by(id=catch_id))
+            catch = result.scalar_one_or_none()
+            if not catch:
+                return web.json_response({"error": "Catch not found"}, status=404)
+            
+            # Check ownership or admin
+            if catch.user_id != user.id and not is_admin:
+                return web.json_response({"error": "Forbidden"}, status=403)
+                
+            catch.fish_species = species
+            catch.weight = weight
+            catch.bait = bait
+            catch.location = location
+            if lat is not None: catch.lat = lat
+            if lon is not None: catch.lon = lon
+            
+            # Update photo only if new photo is uploaded
+            if photo_path:
+                if catch.photo_id and os.path.exists(catch.photo_id):
+                    try:
+                        os.remove(catch.photo_id)
+                    except:
+                        pass
+                catch.photo_id = photo_path
+                
+        else:
+            # Create new catch
+            new_log = CatchLog(
+                user_id=user.id,
+                fish_species=species,
+                weight=weight,
+                bait=bait,
+                location=location,
+                lat=lat,
+                lon=lon,
+                photo_id=photo_path
+            )
+            session.add(new_log)
+            
+        await session.commit()
+        
+    return web.json_response({"success": True})
+
+async def api_catch_delete(request):
+    try:
+        data = await request.json()
+    except:
+        return web.json_response({"error": "Invalid JSON"}, status=400)
+        
+    user_id = data.get('user_id', '')
+    sig = data.get('sig', '')
+    catch_id = data.get('catch_id')
+    
+    if not validate_secure_url(user_id, sig):
+        return web.json_response({"error": "Unauthorized"}, status=401)
+        
+    tg_id = int(user_id)
+    is_admin = (tg_id == ADMIN_ID)
+    
+    async with async_session() as session:
+        result = await session.execute(select(CatchLog).filter_by(id=catch_id))
+        catch = result.scalar_one_or_none()
+        
+        if not catch:
+            return web.json_response({"error": "Not found"}, status=404)
+            
+        result = await session.execute(select(User).filter_by(id=catch.user_id))
+        owner = result.scalar_one_or_none()
+        
+        if owner.telegram_id != tg_id and not is_admin:
+            return web.json_response({"error": "Forbidden"}, status=403)
+            
+        # Delete photo file if exists
+        if catch.photo_id and os.path.exists(catch.photo_id):
+            try:
+                os.remove(catch.photo_id)
+            except:
+                pass
+                
+        await session.delete(catch)
         await session.commit()
         
     return web.json_response({"success": True})
@@ -202,7 +284,11 @@ async def api_chat_get(request):
             "date": m.created_at.isoformat() if m.created_at else None
         } for m in messages]
         
-    return web.json_response(data)
+    return web.json_response({
+        "is_admin": int(user_id) == ADMIN_ID if user_id.isdigit() else False,
+        "current_user_id": int(user_id) if user_id.isdigit() else 0,
+        "messages": data
+    })
 
 async def api_chat_post(request):
     try:
@@ -237,6 +323,78 @@ async def api_chat_post(request):
         await session.commit()
         
     return web.json_response({"status": "ok"})
+
+async def api_chat_delete(request):
+    try:
+        data = await request.json()
+    except:
+        return web.json_response({"error": "Invalid JSON"}, status=400)
+        
+    user_id = data.get('user_id', '')
+    sig = data.get('sig', '')
+    msg_id = data.get('msg_id')
+    
+    if not validate_secure_url(user_id, sig):
+        return web.json_response({"error": "Unauthorized"}, status=401)
+        
+    tg_id = int(user_id)
+    is_admin = (tg_id == ADMIN_ID)
+    
+    async with async_session() as session:
+        result = await session.execute(select(ChatMessage).filter_by(id=msg_id))
+        msg = result.scalar_one_or_none()
+        
+        if not msg:
+            return web.json_response({"error": "Not found"}, status=404)
+            
+        result = await session.execute(select(User).filter_by(id=msg.user_id))
+        owner = result.scalar_one_or_none()
+        
+        if owner.telegram_id != tg_id and not is_admin:
+            return web.json_response({"error": "Forbidden"}, status=403)
+            
+        await session.delete(msg)
+        await session.commit()
+        
+    return web.json_response({"success": True})
+
+async def api_chat_put(request):
+    try:
+        data = await request.json()
+    except:
+        return web.json_response({"error": "Invalid JSON"}, status=400)
+        
+    user_id = data.get('user_id', '')
+    sig = data.get('sig', '')
+    msg_id = data.get('msg_id')
+    text = data.get('text', '').strip()
+    
+    if not validate_secure_url(user_id, sig):
+        return web.json_response({"error": "Unauthorized"}, status=401)
+        
+    if not text:
+        return web.json_response({"error": "Empty message"}, status=400)
+        
+    tg_id = int(user_id)
+    is_admin = (tg_id == ADMIN_ID)
+    
+    async with async_session() as session:
+        result = await session.execute(select(ChatMessage).filter_by(id=msg_id))
+        msg = result.scalar_one_or_none()
+        
+        if not msg:
+            return web.json_response({"error": "Not found"}, status=404)
+            
+        result = await session.execute(select(User).filter_by(id=msg.user_id))
+        owner = result.scalar_one_or_none()
+        
+        if owner.telegram_id != tg_id and not is_admin:
+            return web.json_response({"error": "Forbidden"}, status=403)
+            
+        msg.text = text
+        await session.commit()
+        
+    return web.json_response({"success": True})
 async def start_web_server(port: int = 8080):
     # Set max upload size to 20MB for photos
     app = web.Application(client_max_size=1024 * 1024 * 20)
@@ -254,8 +412,11 @@ async def start_web_server(port: int = 8080):
     cors.add(app.router.add_get('/api/history', api_history))
     cors.add(app.router.add_get('/api/global_map', api_global_map))
     cors.add(app.router.add_post('/api/catch', api_catch))
+    cors.add(app.router.add_delete('/api/catch', api_catch_delete))
     cors.add(app.router.add_get('/api/chat', api_chat_get))
     cors.add(app.router.add_post('/api/chat', api_chat_post))
+    cors.add(app.router.add_put('/api/chat', api_chat_put))
+    cors.add(app.router.add_delete('/api/chat', api_chat_delete))
     
     # Path to directories
     current_dir = os.path.dirname(os.path.abspath(__file__))

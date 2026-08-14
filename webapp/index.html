@@ -39,6 +39,7 @@
         </header>
 
                 <form id="catch-form">
+                    <input type="hidden" id="catch-id" name="catch_id" value="">
                     <div class="form-group">
                         <label for="species">Вид риби</label>
                         <input type="text" id="species" name="species" list="species-options" required placeholder="Оберіть або введіть свою...">
@@ -187,6 +188,10 @@
                     <p style="margin: 5px 0;"><strong>Місце лову:</strong> <span id="modal-location"></span></p>
                     <p style="margin: 5px 0;"><strong>Дата:</strong> <span id="modal-date"></span></p>
                 </div>
+                <div id="modal-actions" style="margin-top: 15px; display: none; gap: 10px;">
+                    <button id="edit-catch-btn" style="flex: 1; background: #eab308; color: white; border: none; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer;">✏️ Змінити</button>
+                    <button id="delete-catch-btn" style="flex: 1; background: #ef4444; color: white; border: none; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer;">🗑 Видалити</button>
+                </div>
             </div>
         </div>
         
@@ -219,9 +224,14 @@
                     <div style="text-align:center; color: #666; font-size: 14px; margin-top: 20px;">Завантаження повідомлень...</div>
                 </div>
                 
-                <div style="display: flex; gap: 8px; margin-top: 10px;">
+                <div id="emoji-bar" style="display: flex; gap: 5px; margin-top: 10px; padding: 5px; background: rgba(255,255,255,0.6); border-radius: 10px; overflow-x: auto; white-space: nowrap;">
+                    <!-- Emojis populated by JS -->
+                </div>
+                
+                <div style="display: flex; gap: 8px; margin-top: 5px;">
+                    <input type="hidden" id="edit-msg-id" value="">
                     <input type="text" id="chat-input" placeholder="Напишіть повідомлення..." style="flex-grow: 1; padding: 12px; border: 1px solid rgba(255,255,255,0.6); border-radius: 20px; background: rgba(255,255,255,0.8); outline: none;">
-                    <button id="chat-send-btn" style="background: #3b82f6; color: white; border: none; width: 45px; height: 45px; border-radius: 50%; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+                    <button id="chat-send-btn" style="background: #3b82f6; color: white; border: none; width: 45px; height: 45px; border-radius: 50%; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
                         ➤
                     </button>
                 </div>
@@ -254,6 +264,6 @@
         </a>
     </nav>
 
-    <script src="app.js?v=13"></script>
+    <script src="app.js?v=14"></script>
 </body>
 </html>

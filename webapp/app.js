@@ -52,17 +52,26 @@ document.querySelector('[data-target="tab-history"]').addEventListener('click', 
         const queryStr = window.location.search; // Contains ?user_id=...&sig=...
         const res = await fetch(`${API_URL}/api/history${queryStr}`);
         if (!res.ok) throw new Error("API error");
-        const data = await res.json();
-        window.historyData = data;
+        let isAdmin = false;
+        let myId = tg.initDataUnsafe?.user?.id?.toString();
+        let catchesData = [];
         
+        if (data && data.catches) {
+            catchesData = data.catches;
+            isAdmin = data.is_admin;
+        } else {
+            catchesData = data;
+        }
+        
+        window.historyData = catchesData;
         loading.style.display = 'none';
         
-        if (data.length === 0) {
+        if (catchesData.length === 0) {
             list.innerHTML = "<p style='text-align:center;'>Ви ще нічого не спіймали 😢</p>";
             return;
         }
         
-        data.forEach(catchItem => {
+        catchesData.forEach(catchItem => {
             const date = new Date(catchItem.date).toLocaleDateString('uk-UA');
             
             let photoHtml = '';
@@ -101,6 +110,12 @@ document.querySelector('[data-target="tab-history"]').addEventListener('click', 
                 } else {
                     photoContainer.innerHTML = `<div style="padding: 20px; background: #f1f5f9; border-radius: 10px; color: #64748b;">Фото відсутнє</div>`;
                 }
+                
+                const actionsDiv = document.getElementById('modal-actions');
+                actionsDiv.style.display = 'flex';
+                
+                document.getElementById('edit-catch-btn').onclick = () => window.editCatch(catchItem);
+                document.getElementById('delete-catch-btn').onclick = () => window.deleteCatch(catchItem.id);
                 
                 document.getElementById('catch-modal').style.display = 'flex';
             });
@@ -397,31 +412,48 @@ async function initGlobalMap() {
     if (!window.globalMapData || window.globalMapData.length === 0) {
         const queryStr = window.location.search;
         try {
-            const res = await fetch(`${API_URL}/api/global_map${queryStr}`);
-            window.globalMapData = await res.json();
-        } catch (e) { console.error(e); }
-    }
-    
-    if (window.globalMapData && window.globalMapData.length > 0) {
-        let hasPins = false;
-        const bounds = L.latLngBounds();
+        const res = await fetch(`${API_URL}/api/global_map${queryStr}`);
+        const data = await res.json();
         
-        window.globalMapData.forEach(c => {
-            if (c.lat && c.lon) {
-                hasPins = true;
-                const photoUrl = c.photo_url ? `${API_URL}${c.photo_url}` : null;
-                const imgHtml = photoUrl ? `<img src="${photoUrl}" style="width:100%; height:100px; object-fit:cover; border-radius:5px; margin-bottom:5px;">` : '';
+        let mapCatches = [];
+        let isAdmin = false;
+        let myId = tg.initDataUnsafe?.user?.id?.toString();
+        
+        if (data && data.catches) {
+            mapCatches = data.catches;
+            isAdmin = data.is_admin;
+        } else {
+            mapCatches = data;
+        }
+        
+        if (mapCatches.length > 0) {
+            const bounds = L.latLngBounds();
+            
+            mapCatches.forEach(c => {
                 const date = new Date(c.date).toLocaleDateString('uk-UA');
+                const photoUrl = c.photo_url ? `${API_URL}${c.photo_url}` : null;
+                const photoHtml = photoUrl ? `<img src="${photoUrl}" style="width: 100%; height: 100px; object-fit: cover; border-radius: 8px; margin-bottom: 5px;">` : '';
+                
+                const isMe = myId === c.user_id?.toString();
+                
+                let actionsHtml = `<button onclick="window.openChatWith('${c.username}')" style="margin-top: 8px; width: 100%; background: #3b82f6; color: white; border: none; padding: 5px; border-radius: 5px; cursor: pointer; font-size: 12px;">Написати 💬</button>`;
+                
+                if (isAdmin || isMe) {
+                    actionsHtml += `<div style="display:flex; gap:5px; margin-top:5px;">
+                        <button onclick='window.editCatch(${JSON.stringify(c).replace(/'/g, "&apos;")})' style="flex:1; background: #eab308; color: white; border: none; padding: 5px; border-radius: 5px; cursor: pointer; font-size: 12px;">✏️</button>
+                        <button onclick="window.deleteCatch(${c.id})" style="flex:1; background: #ef4444; color: white; border: none; padding: 5px; border-radius: 5px; cursor: pointer; font-size: 12px;">🗑</button>
+                    </div>`;
+                }
                 
                 const popupContent = `
-                    <div style="text-align:center; min-width: 130px;">
-                        ${imgHtml}
-                        <h4 style="margin: 5px 0; color: #0369a1;">${c.species}</h4>
+                    <div style="text-align: center; width: 150px; font-family: 'Inter', sans-serif;">
+                        ${photoHtml}
+                        <h4 style="margin: 0 0 2px 0; font-size:14px; color: #0f172a;">${c.species}</h4>
                         <p style="margin: 0; font-size:12px; font-weight:bold;">👤 ${c.username}</p>
                         <p style="margin: 2px 0 0 0; font-size:12px;">⚖️ ${c.weight} кг</p>
                         <p style="margin: 2px 0 0 0; font-size:11px; opacity:0.8;">📍 ${c.location}</p>
                         <p style="margin: 2px 0 0 0; font-size:11px; opacity:0.8;">📅 ${date}</p>
-                        <button onclick="window.openChatWith('${c.username}')" style="margin-top: 8px; width: 100%; background: #3b82f6; color: white; border: none; padding: 5px; border-radius: 5px; cursor: pointer; font-size: 12px;">Написати 💬</button>
+                        ${actionsHtml}
                     </div>
                 `;
                 
@@ -476,8 +508,22 @@ let chatInterval = null;
 async function loadChat() {
     const queryStr = window.location.search;
     try {
+    try {
         const res = await fetch(`${API_URL}/api/chat${queryStr}`);
-        const messages = await res.json();
+        const data = await res.json();
+        
+        // Handle backend returning object {is_admin, messages, current_user_id}
+        let messages = [];
+        let isAdmin = false;
+        let myId = tg.initDataUnsafe?.user?.id?.toString();
+        
+        if (data && data.messages) {
+            messages = data.messages;
+            isAdmin = data.is_admin;
+            myId = data.current_user_id.toString();
+        } else {
+            messages = data;
+        }
         
         const chatContainer = document.getElementById('chat-messages');
         chatContainer.innerHTML = '';
@@ -488,7 +534,7 @@ async function loadChat() {
         }
         
         messages.forEach(m => {
-            const isMe = m.user_id.toString() === tg.initDataUnsafe?.user?.id?.toString();
+            const isMe = m.user_id.toString() === myId;
             
             const msgDiv = document.createElement('div');
             msgDiv.style.padding = '8px 12px';
@@ -496,6 +542,7 @@ async function loadChat() {
             msgDiv.style.maxWidth = '80%';
             msgDiv.style.wordBreak = 'break-word';
             msgDiv.style.fontSize = '14px';
+            msgDiv.style.position = 'relative';
             
             if (isMe) {
                 msgDiv.style.background = '#3b82f6';
@@ -516,7 +563,22 @@ async function loadChat() {
             const timeStr = `${timeDate.getHours().toString().padStart(2, '0')}:${timeDate.getMinutes().toString().padStart(2, '0')}`;
             const timeHtml = `<div style="font-size: 10px; opacity: 0.7; text-align: right; margin-top: 3px;">${timeStr}</div>`;
             
-            msgDiv.innerHTML = nameHtml + m.text + timeHtml;
+            // Actions (Edit/Delete)
+            let actionsHtml = `<div style="display:inline-flex; gap: 5px; margin-right: 8px;">`;
+            if (isMe || isAdmin) {
+                actionsHtml += `<span onclick="editChatMessage(${m.id}, \`${m.text.replace(/`/g, '\\`')}\`)" style="cursor:pointer; font-size:12px; opacity:0.8;">✏️</span>`;
+            }
+            if (isAdmin) {
+                actionsHtml += `<span onclick="deleteChatMessage(${m.id})" style="cursor:pointer; font-size:12px; opacity:0.8; color:#ef4444;">🗑</span>`;
+            }
+            actionsHtml += `</div>`;
+            
+            const bottomRow = `<div style="display:flex; justify-content: space-between; align-items: center; margin-top: 3px;">
+                                ${actionsHtml}
+                                <div style="font-size: 10px; opacity: 0.7;">${timeStr}</div>
+                               </div>`;
+            
+            msgDiv.innerHTML = nameHtml + m.text + bottomRow;
             chatContainer.appendChild(msgDiv);
         });
         
@@ -546,13 +608,34 @@ document.querySelectorAll('.nav-item').forEach(el => {
     });
 });
 
-document.getElementById('chat-send-btn').addEventListener('click', async () => {
-    const input = document.getElementById('chat-input');
-    const text = input.value.trim();
-    if (!text) return;
-    
-    // Optimistic clear
-    input.value = '';
+// Emojis logic
+const EMOJIS = ['🎣', '🐟', '🦈', '🦐', '🛶', '🏕', '🍻', '🌧', '☀️', '🏆'];
+const emojiBar = document.getElementById('emoji-bar');
+if (emojiBar) {
+    EMOJIS.forEach(emoji => {
+        const btn = document.createElement('div');
+        btn.innerText = emoji;
+        btn.style.cursor = 'pointer';
+        btn.style.fontSize = '20px';
+        btn.style.padding = '2px 5px';
+        btn.addEventListener('click', () => {
+            const input = document.getElementById('chat-input');
+            input.value += emoji;
+            input.focus();
+        });
+        emojiBar.appendChild(btn);
+    });
+}
+
+// Chat API Actions
+window.editChatMessage = function(id, text) {
+    document.getElementById('edit-msg-id').value = id;
+    document.getElementById('chat-input').value = text;
+    document.getElementById('chat-input').focus();
+};
+
+window.deleteChatMessage = async function(id) {
+    if(!confirm("Ви впевнені, що хочете видалити це повідомлення?")) return;
     
     const urlParams = new URLSearchParams(window.location.search);
     const user_id = urlParams.get('user_id');
@@ -560,16 +643,115 @@ document.getElementById('chat-send-btn').addEventListener('click', async () => {
     
     try {
         await fetch(`${API_URL}/api/chat`, {
-            method: 'POST',
+            method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                user_id: user_id,
-                sig: sig,
-                text: text
-            })
+            body: JSON.stringify({ user_id, sig, msg_id: id })
         });
+        loadChat();
+    } catch(e) {}
+};
+
+document.getElementById('chat-send-btn').addEventListener('click', sendChatMessage);
+document.getElementById('chat-input').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') sendChatMessage();
+});
+
+async function sendChatMessage() {
+    const input = document.getElementById('chat-input');
+    const msgIdInput = document.getElementById('edit-msg-id');
+    
+    const text = input.value.trim();
+    const msgId = msgIdInput.value;
+    
+    if (!text) return;
+    
+    // Optimistic clear
+    input.value = '';
+    msgIdInput.value = '';
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    const user_id = urlParams.get('user_id');
+    const sig = urlParams.get('sig');
+    
+    try {
+        if (msgId) {
+            // Edit
+            await fetch(`${API_URL}/api/chat`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id, sig, text, msg_id: msgId })
+            });
+        } else {
+            // Send new
+            await fetch(`${API_URL}/api/chat`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id, sig, text })
+            });
+        }
         loadChat();
     } catch (e) {
         alert("Помилка відправки");
     }
+}
+
+// Catch Edit / Delete API
+window.editCatch = function(catchItem) {
+    document.getElementById('catch-modal').style.display = 'none';
+    
+    // Switch to log tab
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    document.getElementById('tab-log').classList.add('active');
+    document.querySelector('.nav-item[data-target="tab-log"]').classList.add('active');
+    
+    // Populate form
+    document.getElementById('catch-id').value = catchItem.id;
+    document.getElementById('species').value = catchItem.species || '';
+    document.getElementById('weight').value = catchItem.weight || '';
+    document.getElementById('bait').value = catchItem.bait || '';
+    
+    document.getElementById('loc-name').value = catchItem.location || '';
+    document.getElementById('loc-lat').value = catchItem.lat || '';
+    document.getElementById('loc-lon').value = catchItem.lon || '';
+    
+    document.getElementById('submit-btn').innerText = '💾 Зберегти зміни';
+};
+
+window.deleteCatch = async function(id) {
+    if(!confirm("Ви впевнені, що хочете видалити цей улов?")) return;
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    const user_id = urlParams.get('user_id');
+    const sig = urlParams.get('sig');
+    
+    try {
+        const res = await fetch(`${API_URL}/api/catch`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id, sig, catch_id: id })
+        });
+        
+        if (res.ok) {
+            document.getElementById('catch-modal').style.display = 'none';
+            // Reload history and map
+            document.querySelector('[data-target="tab-history"]').click();
+            if (catchesMap) initGlobalMap(); // reload map
+            tg.showAlert("Улов видалено!");
+        } else {
+            alert("Помилка видалення");
+        }
+    } catch(e) {
+        alert("Помилка сервера");
+    }
+};
+
+// Reset form when opening Log tab
+document.querySelector('[data-target="tab-log"]').addEventListener('click', () => {
+    if (document.getElementById('catch-id').value === "") return; // Already new
+    // Ask if want to create new or continue editing
+    document.getElementById('catch-form').reset();
+    document.getElementById('catch-id').value = '';
+    document.getElementById('photo').value = '';
+    document.getElementById('submit-btn').innerText = '💾 Зберегти улов';
 });
