@@ -11,11 +11,15 @@ window.customAlert = function(msg) {
     }
 };
 
+const urlParams = new URLSearchParams(window.location.search);
+const urlUserId = urlParams.get('user_id');
+const urlSig = urlParams.get('sig');
+
 let appState = {
     isGuest: false,
     guestNickname: localStorage.getItem('fishapp_guest_nickname'),
     token: localStorage.getItem('fishapp_auth_token'),
-    tgUser: tg && tg.initDataUnsafe && tg.initDataUnsafe.user ? tg.initDataUnsafe.user : null
+    tgUser: (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) ? tg.initDataUnsafe.user : (urlUserId && urlSig ? { id: urlUserId } : null)
 };
 
 if (!appState.tgUser && !appState.token && !appState.guestNickname) {
