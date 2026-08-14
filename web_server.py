@@ -781,7 +781,12 @@ async def start_web_server(port: int = 8080):
     
     # Serve static files
     app.router.add_static('/photos', photos_dir, name='photos')
-    app.router.add_static('/', webapp_dir, name='static', show_index=True)
+    
+    async def index_handler(request):
+        return web.FileResponse(os.path.join(webapp_dir, 'index.html'))
+    
+    app.router.add_get('/', index_handler)
+    app.router.add_static('/', webapp_dir, name='static', show_index=False)
     
     runner = web.AppRunner(app)
     await runner.setup()
