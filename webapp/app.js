@@ -60,9 +60,16 @@ document.querySelector('[data-target="tab-history"]').addEventListener('click', 
         
         data.forEach(catchItem => {
             const date = new Date(catchItem.date).toLocaleDateString('uk-UA');
+            
+            let photoHtml = '';
+            if (catchItem.photo_url) {
+                photoHtml = `<img src="${API_URL}${catchItem.photo_url}" style="width: 70px; height: 70px; object-fit: cover; border-radius: 8px; margin-right: 15px;" alt="Трофей">`;
+            }
+            
             list.innerHTML += `
-                <div class="weather-item" style="width:100%; margin-bottom:10px; flex-direction:row; justify-content:space-between; align-items:center;">
-                    <div>
+                <div class="weather-item" style="width:100%; margin-bottom:10px; display:flex; flex-direction:row; align-items:center;">
+                    ${photoHtml}
+                    <div style="flex-grow: 1;">
                         <strong>${catchItem.species}</strong><br>
                         <small>${catchItem.weight} кг | ${catchItem.bait}</small>
                     </div>
