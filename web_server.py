@@ -254,7 +254,7 @@ async def api_catch_delete(request):
     tg_id = int(user_id)
     
     async with async_session() as session:
-        user, is_admin, is_banned = await get_user_and_check_auth(tg_id, session)
+        user, is_admin, is_banned, ban_reason, muted_until, mute_reason = await get_user_and_check_auth(tg_id, session)
         
         if is_banned:
             return web.json_response({"error": "Ви забанені."}, status=403)
@@ -293,7 +293,7 @@ async def api_chat_get(request):
     tg_id = int(user_id) if user_id.isdigit() else 0
         
     async with async_session() as session:
-        user, is_admin, is_banned = await get_user_and_check_auth(tg_id, session)
+        user, is_admin, is_banned, ban_reason, muted_until, mute_reason = await get_user_and_check_auth(tg_id, session)
         
         from sqlalchemy.orm import selectinload
         # Fetch last 50 messages, ordered by oldest to newest for chat UI
@@ -379,7 +379,7 @@ async def api_chat_delete(request):
     tg_id = int(user_id)
     
     async with async_session() as session:
-        user, is_admin, is_banned = await get_user_and_check_auth(tg_id, session)
+        user, is_admin, is_banned, ban_reason, muted_until, mute_reason = await get_user_and_check_auth(tg_id, session)
         
         if is_banned:
             return web.json_response({"error": "Ви забанені."}, status=403)
