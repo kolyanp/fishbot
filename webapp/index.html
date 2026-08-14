@@ -266,6 +266,23 @@
             </div>
         </div>
 
+        <!-- Tab 7: Адмінка -->
+        <div id="tab-admin" class="tab-content">
+            <div class="glass-container" style="height: 85vh; display: flex; flex-direction: column; padding: 10px;">
+                <header style="margin-bottom: 10px; text-align: center;">
+                    <h1 style="margin: 0; font-size: 20px;">👑 Керування користувачами</h1>
+                </header>
+                
+                <div style="margin-bottom: 10px;">
+                    <input type="text" id="admin-search-input" placeholder="Пошук користувача..." style="width: 100%; padding: 10px; border: 1px solid rgba(255,255,255,0.6); border-radius: 12px; background: rgba(255,255,255,0.8); outline: none; box-sizing: border-box;">
+                </div>
+
+                <div id="admin-users-list" style="flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-bottom: 20px;">
+                    <div style="text-align:center; color: #666; font-size: 14px; margin-top: 20px;">Завантаження...</div>
+                </div>
+            </div>
+        </div>
+
         <!-- Modal for Guest Login / Auth -->
         <div id="auth-modal" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 2000; justify-content: center; align-items: center; backdrop-filter: blur(5px);">
             <div class="modal-content" style="background: white; width: 90%; max-width: 400px; border-radius: 20px; padding: 25px; text-align: center; position: relative;">
@@ -354,6 +371,10 @@
         <a href="#" class="nav-item" data-target="tab-leaderboard">
             <span class="nav-icon">🏆</span>
             <span class="nav-text">Топ</span>
+        </a>
+        <a href="#" class="nav-item" data-target="tab-admin" id="nav-admin" style="display: none;">
+            <span class="nav-icon">👑</span>
+            <span class="nav-text">Адмін</span>
         </a>
     </nav>
 

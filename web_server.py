@@ -831,3 +831,73 @@ async def start_web_server(port: int = 8080):
     await site.start()
     logger.info(f"Web server started on http://0.0.0.0:{port}")
     return runner
+
+
+async def api_users(request):
+    try:
+        data = await request.json()
+    except:
+        return web.json_response({"error": "Invalid JSON"}, status=400)
+        
+    user_id = data.get('user_id', '')
+    sig = data.get('sig', '')
+    
+    if not validate_secure_url(user_id, sig):
+        return web.json_response({"error": "Unauthorized"}, status=401)
+        
+    tg_id = int(user_id)
+    
+    async with async_session() as session:
+        # Only MAIN ADMIN can see users and assign mods
+        if tg_id != ADMIN_ID:
+            return web.json_response({"error": "Forbidden"}, status=403)
+            
+        result = await session.execute(select(User).order_by(User.id.desc()))
+        users = result.scalars().all()
+        
+        users_list = []
+        for u in users:
+            users_list.append({
+                "id": u.id,
+                "telegram_id": u.telegram_id,
+                "username": u.username,
+                "is_banned": u.is_banned,
+                "is_moderator": u.is_moderator,
+                "is_admin": u.telegram_id == ADMIN_ID
+            })
+            
+    return web.json_response({"users": users_list})
+
+async def api_set_mod(request):
+    try:
+        data = await request.json()
+    except:
+        return web.json_response({"error": "Invalid JSON"}, status=400)
+        
+    user_id = data.get('user_id', '')
+    sig = data.get('sig', '')
+    target_id = data.get('target_id')
+    is_mod = data.get('is_moderator', False)
+    
+    if not validate_secure_url(user_id, sig):
+        return web.json_response({"error": "Unauthorized"}, status=401)
+        
+    tg_id = int(user_id)
+    
+    async with async_session() as session:
+        if tg_id != ADMIN_ID:
+            return web.json_response({"error": "Forbidden"}, status=403)
+            
+        result = await session.execute(select(User).filter_by(id=target_id))
+        target = result.scalar_one_or_none()
+        
+        if not target:
+            return web.json_response({"error": "User not found"}, status=404)
+            
+        target.is_moderator = is_mod
+        await session.commit()
+        
+    return web.json_response({"success": True})
+
+app.router.add_post('/api/users', api_users)
+app.router.add_post('/api/set_mod', api_set_mod)

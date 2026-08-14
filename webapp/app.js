@@ -146,6 +146,10 @@ document.querySelector('[data-target="tab-history"]').addEventListener('click', 
         if (data && data.catches) {
             catchesData = data.catches;
             isAdmin = data.is_admin;
+            if (isAdmin) {
+                const adminNav = document.getElementById('nav-admin');
+                if (adminNav) adminNav.style.display = 'flex';
+            }
         } else {
             catchesData = data;
         }
@@ -518,6 +522,10 @@ async function initGlobalMap() {
         if (data && data.catches) {
             mapCatches = data.catches;
             isAdmin = data.is_admin;
+            if (isAdmin) {
+                const adminNav = document.getElementById('nav-admin');
+                if (adminNav) adminNav.style.display = 'flex';
+            }
         } else {
             mapCatches = data;
         }
@@ -630,6 +638,10 @@ async function loadChat() {
         if (data && data.messages) {
             messages = data.messages;
             isAdmin = data.is_admin;
+            if (isAdmin) {
+                const adminNav = document.getElementById('nav-admin');
+                if (adminNav) adminNav.style.display = 'flex';
+            }
             myId = data.current_user_id?.toString();
             
             // Check mute
@@ -1262,3 +1274,131 @@ window.onTelegramWidgetAuth = async function(user) {
         }
     });
 })();
+
+// --- ADMIN PANEL LOGIC ---
+
+async function loadAdminUsers() {
+    const listDiv = document.getElementById('admin-users-list');
+    listDiv.innerHTML = "<div style='text-align:center; color:#666; margin-top:20px;'>Завантаження...</div>";
+    
+    try {
+        const queryStr = appState.isTelegram 
+            ? `?user_id=${window.userId}&sig=${window.authSig}`
+            : `?user_id=${window.userId}&sig=${window.authSig}`;
+            
+        const res = await fetch(`${API_URL}/api/users`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                user_id: window.userId,
+                sig: window.authSig
+            })
+        });
+        
+        if (res.status === 403) {
+            listDiv.innerHTML = `
+                <div style="text-align:center; padding: 20px;">
+                    <div style="font-size:40px; margin-bottom:10px;">🛑</div>
+                    <h3 style="color:#ef4444; margin:0;">Доступ заборонено</h3>
+                    <p style="color:#64748b; font-size:14px;">Ця вкладка доступна лише Головному Адміністратору.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        const data = await res.json();
+        if (data.error) {
+            listDiv.innerHTML = `<div style="color:red; text-align:center;">Помилка: ${data.error}</div>`;
+            return;
+        }
+        
+        renderAdminUsers(data.users);
+        
+    } catch (e) {
+        listDiv.innerHTML = `<div style="color:red; text-align:center;">Помилка з'єднання</div>`;
+    }
+}
+
+function renderAdminUsers(users) {
+    const listDiv = document.getElementById('admin-users-list');
+    listDiv.innerHTML = '';
+    
+    if (users.length === 0) {
+        listDiv.innerHTML = "<div style='text-align:center; color:#666; margin-top:20px;'>Користувачів немає</div>";
+        return;
+    }
+    
+    users.forEach(u => {
+        const item = document.createElement('div');
+        item.style.cssText = "background: rgba(255,255,255,0.6); padding: 12px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center;";
+        
+        const name = u.username ? `@${u.username}` : `ID: ${u.telegram_id}`;
+        let statusHtml = '';
+        if (u.is_banned) statusHtml += '<span style="color:red; font-size:12px; font-weight:bold;">ЗАБАНЕНИЙ</span> ';
+        if (u.is_admin) statusHtml += '<span style="color:#8b5cf6; font-size:12px; font-weight:bold;">АДМІН</span> ';
+        
+        item.innerHTML = `
+            <div>
+                <div style="font-weight:bold;">${name}</div>
+                <div style="font-size:12px; color:#666;">ID DB: ${u.id} | TG: ${u.telegram_id}</div>
+                <div>${statusHtml}</div>
+            </div>
+            <div>
+                ${!u.is_admin ? `
+                    <label style="display: flex; align-items: center; gap: 5px; font-size: 14px; cursor: pointer;">
+                        <input type="checkbox" onchange="window.toggleModerator(${u.id}, this.checked)" ${u.is_moderator ? 'checked' : ''} style="accent-color: #3b82f6; width:18px; height:18px;">
+                        Модератор
+                    </label>
+                ` : ''}
+            </div>
+        `;
+        listDiv.appendChild(item);
+    });
+}
+
+window.toggleModerator = async function(targetId, isMod) {
+    try {
+        const res = await fetch(`${API_URL}/api/set_mod`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                user_id: window.userId,
+                sig: window.authSig,
+                target_id: targetId,
+                is_moderator: isMod
+            })
+        });
+        
+        const data = await res.json();
+        if (data.error) {
+            alert(data.error);
+        }
+    } catch (e) {
+        alert("Помилка з'єднання");
+    }
+};
+
+// Hook into nav click for admin tab
+document.querySelector('.nav-item[data-target="tab-admin"]').addEventListener('click', (e) => {
+    e.preventDefault();
+    // Assuming auth check passed
+    loadAdminUsers();
+});
+
+// Search functionality for admin users list
+document.getElementById('admin-search-input').addEventListener('input', (e) => {
+    const val = e.target.value.toLowerCase();
+    const listDiv = document.getElementById('admin-users-list');
+    const items = listDiv.children;
+    for (let i = 0; i < items.length; i++) {
+        if (items[i].innerText.toLowerCase().includes(val)) {
+            items[i].style.display = 'flex';
+        } else {
+            items[i].style.display = 'none';
+        }
+    }
+});
+
+// To unhide the nav item when admin:
+// We need to inject this into the login flow where `data.is_admin` is processed.
+// We'll run a quick find-and-replace in app.js for `isAdmin = data.is_admin;` to also unhide the tab.

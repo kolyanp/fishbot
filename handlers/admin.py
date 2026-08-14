@@ -551,3 +551,101 @@ async def cq_mod_act(callback: CallbackQuery):
         await callback.message.edit_text(text, reply_markup=builder.as_markup(), parse_mode="Markdown")
     except:
         pass
+
+
+@router.message(Command("mod"))
+async def cmd_mod(message: Message):
+    if not is_admin(message.from_user.id):
+        return
+        
+    target_username = None
+    target_id = None
+    
+    if message.reply_to_message:
+        target_id = message.reply_to_message.from_user.id
+        target_username = message.reply_to_message.from_user.username
+    else:
+        parts = message.text.split(maxsplit=1)
+        if len(parts) > 1:
+            target_username = parts[1].replace('@', '').strip()
+            
+    if not target_username and not target_id:
+        await message.answer("Вкажіть юзернейм або зробіть реплай на повідомлення користувача: /mod @username")
+        return
+        
+    async with async_session() as session:
+        if target_id:
+            result = await session.execute(select(User).filter_by(telegram_id=target_id))
+        else:
+            result = await session.execute(select(User).filter_by(username=target_username))
+            
+        target = result.scalar_one_or_none()
+        
+        if not target:
+            await message.answer("Користувача не знайдено в базі даних.")
+            return
+            
+        target.is_moderator = True
+        await session.commit()
+        
+    name = f"@{target.username}" if target.username else f"ID: {target.telegram_id}"
+    await message.answer(f"✅ Користувача {name} призначено модератором!")
+
+
+@router.message(Command("unmod"))
+async def cmd_unmod(message: Message):
+    if not is_admin(message.from_user.id):
+        return
+        
+    target_username = None
+    target_id = None
+    
+    if message.reply_to_message:
+        target_id = message.reply_to_message.from_user.id
+    else:
+        parts = message.text.split(maxsplit=1)
+        if len(parts) > 1:
+            target_username = parts[1].replace('@', '').strip()
+            
+    if not target_username and not target_id:
+        await message.answer("Вкажіть юзернейм або зробіть реплай на повідомлення користувача: /unmod @username")
+        return
+        
+    async with async_session() as session:
+        if target_id:
+            result = await session.execute(select(User).filter_by(telegram_id=target_id))
+        else:
+            result = await session.execute(select(User).filter_by(username=target_username))
+            
+        target = result.scalar_one_or_none()
+        
+        if not target:
+            await message.answer("Користувача не знайдено в базі даних.")
+            return
+            
+        target.is_moderator = False
+        await session.commit()
+        
+    name = f"@{target.username}" if target.username else f"ID: {target.telegram_id}"
+    await message.answer(f"❌ З користувача {name} знято права модератора.")
+
+
+@router.message(Command("mods"))
+async def cmd_mods(message: Message):
+    if not is_admin(message.from_user.id):
+        return
+        
+    async with async_session() as session:
+        result = await session.execute(select(User).filter_by(is_moderator=True))
+        mods = result.scalars().all()
+        
+    if not mods:
+        await message.answer("Наразі немає жодного модератора.")
+        return
+        
+    text = "🛡 **Список модераторів:**\n\n"
+    for i, mod in enumerate(mods, 1):
+        name = f"@{mod.username}" if mod.username else f"ID: {mod.telegram_id}"
+        text += f"{i}. {name}\n"
+        
+    await message.answer(text, parse_mode="Markdown")
