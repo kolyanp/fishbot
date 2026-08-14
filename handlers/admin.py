@@ -179,32 +179,65 @@ async def cq_admin_backup(callback: CallbackQuery):
     msg_copy = msg.model_copy(update={"from_user": callback.from_user})
     await cmd_backup(msg_copy)
 
-@router.callback_query(F.data == "admin_users")
+@router.callback_query(F.data.startswith("admin_users"))
 async def cq_admin_users(callback: CallbackQuery):
     if not is_admin(callback.from_user.id):
         await callback.answer("Ви не адміністратор.", show_alert=True)
         return
         
-    await callback.answer()
+    parts = callback.data.split("_")
+    page = int(parts[2]) if len(parts) > 2 else 0
+    per_page = 10
     
     async with async_session() as session:
-        result = await session.execute(select(User).order_by(User.id))
+        result = await session.execute(select(User).order_by(User.id.desc()))
         users = result.scalars().all()
         
     if not users:
         await callback.message.answer("Користувачів не знайдено.")
         return
         
-    lines = [f"👥 **Список всіх користувачів ({len(users)} чол.):**\n"]
-    for idx, u in enumerate(users, 1):
-        username = f"@{u.username}" if u.username else "без_юзернейму"
-        lines.append(f"{idx}. ID: `{u.telegram_id}` | {username}")
-        
-    text_content = "\n".join(lines)
+    total_pages = (len(users) + per_page - 1) // per_page
+    if page >= total_pages: page = total_pages - 1
+    if page < 0: page = 0
     
-    # Split message if it's too long for Telegram (max 4096 chars)
-    for i in range(0, len(text_content), 4000):
-        await callback.message.answer(text_content[i:i+4000], parse_mode="Markdown")
+    start = page * per_page
+    end = start + per_page
+    page_users = users[start:end]
+    
+    text = f"👥 **Список всіх користувачів ({len(users)} чол.):**\nСторінка {page+1}/{total_pages}\n\n"
+    
+    builder = InlineKeyboardBuilder()
+    
+    for u in page_users:
+        username = f"@{u.username}" if u.username else "без_юзернейму"
+        status = ""
+        if getattr(u, 'is_banned', False): status = "🛑"
+        elif getattr(u, 'muted_until', None): status = "🔇"
+        
+        text += f"ID: `{u.telegram_id}` | {username} {status}\n"
+        builder.button(text=f"⚙️ {u.telegram_id}", callback_data=f"mod_user_{u.telegram_id}")
+        
+    builder.adjust(2) # 2 buttons per row for users
+    
+    # Pagination buttons
+    nav_buttons = []
+    if page > 0:
+        nav_buttons.append(InlineKeyboardButton(text="⬅️ Назад", callback_data=f"admin_users_{page-1}"))
+    if page < total_pages - 1:
+        nav_buttons.append(InlineKeyboardButton(text="Вперед ➡️", callback_data=f"admin_users_{page+1}"))
+        
+    if nav_buttons:
+        builder.row(*nav_buttons)
+        
+    try:
+        if callback.message.text and callback.message.text.startswith("👥"):
+            await callback.message.edit_text(text, reply_markup=builder.as_markup(), parse_mode="Markdown")
+        else:
+            await callback.message.answer(text, reply_markup=builder.as_markup(), parse_mode="Markdown")
+    except:
+        pass
+    await callback.answer()
 
 @router.callback_query(F.data == "admin_chat_log")
 async def cq_admin_chat_log(callback: CallbackQuery):
@@ -219,7 +252,7 @@ async def cq_admin_chat_log(callback: CallbackQuery):
             select(ChatMessage)
             .options(selectinload(ChatMessage.user))
             .order_by(ChatMessage.created_at.desc())
-            .limit(500)
+            .limit(15)
         )
         messages = result.scalars().all()
         
@@ -227,18 +260,28 @@ async def cq_admin_chat_log(callback: CallbackQuery):
         await callback.message.answer("У чаті поки що немає повідомлень.")
         return
         
-    messages.reverse() # Oldest first in the file
+    messages.reverse() # Oldest first in the message
     
-    lines = ["Лог чату (останні 500 повідомлень):\n"]
+    text = "💬 **Останні 15 повідомлень чату:**\n\n"
+    builder = InlineKeyboardBuilder()
+    
+    unique_users = {}
+    
     for m in messages:
-        date_str = m.created_at.strftime('%d.%m.%Y %H:%M:%S') if m.created_at else ""
+        date_str = m.created_at.strftime('%H:%M:%S') if m.created_at else ""
         username = f"@{m.user.username}" if m.user.username else f"ID:{m.user.telegram_id}"
-        lines.append(f"[{date_str}] {username}: {m.text}")
+        text += f"[{date_str}] {username}: {m.text}\n"
         
-    text_content = "\n".join(lines).encode('utf-8')
-    document = BufferedInputFile(text_content, filename="chat_log.txt")
+        if m.user.telegram_id not in unique_users:
+            unique_users[m.user.telegram_id] = username
+            
+    for uid, uname in unique_users.items():
+        builder.button(text=f"⚙️ {uname}", callback_data=f"mod_user_{uid}")
+        
+    builder.adjust(2)
     
-    await callback.message.answer_document(document, caption="💬 Ось лог останніх повідомлень чату.\n\n🛠 **Команди модерації:**\n`/ban <ID> [причина]` - Забанити\n`/mute <ID> <години> [причина]` - Замутити\n`/unban <ID>` - Розбанити/Зняти мут", parse_mode="Markdown")
+    await callback.message.answer(text, reply_markup=builder.as_markup(), parse_mode="Markdown")
+
 
 
 # --- Модерація ---
@@ -396,3 +439,114 @@ async def cmd_delmod(message: Message):
         await session.commit()
         
     await message.answer(f"✅ Користувача {target_id} більше не модератор.")
+
+@router.callback_query(F.data.startswith("mod_user_"))
+async def cq_mod_user(callback: CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        await callback.answer("Ви не адміністратор.", show_alert=True)
+        return
+        
+    target_id = int(callback.data.split("_")[2])
+    
+    async with async_session() as session:
+        result = await session.execute(select(User).filter_by(telegram_id=target_id))
+        target = result.scalar_one_or_none()
+        
+    if not target:
+        await callback.answer("Користувача не знайдено.", show_alert=True)
+        return
+        
+    username = f"@{target.username}" if target.username else "без_юзернейму"
+    status = "Нормальний"
+    if target.is_banned:
+        status = "🛑 ЗАБАНЕНИЙ"
+    elif target.muted_until:
+        status = f"🔇 МУТ до {target.muted_until.strftime('%Y-%m-%d %H:%M')}"
+        
+    text = f"🛡 **Модерація користувача**\n\n" \
+           f"ID: `{target_id}`\n" \
+           f"Ім'я: {username}\n" \
+           f"Статус: {status}\n\n" \
+           f"Оберіть дію:"
+           
+    builder = InlineKeyboardBuilder()
+    builder.button(text="🔇 Мут 1 год", callback_data=f"mod_act_{target_id}_mute1")
+    builder.button(text="🔇 Мут 24 год", callback_data=f"mod_act_{target_id}_mute24")
+    builder.button(text="🛑 Бан назавжди", callback_data=f"mod_act_{target_id}_ban")
+    builder.button(text="✅ Зняти обмеження", callback_data=f"mod_act_{target_id}_unban")
+    builder.adjust(2, 1, 1)
+    
+    try:
+        await callback.message.edit_text(text, reply_markup=builder.as_markup(), parse_mode="Markdown")
+    except:
+        await callback.message.answer(text, reply_markup=builder.as_markup(), parse_mode="Markdown")
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("mod_act_"))
+async def cq_mod_act(callback: CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        await callback.answer("Ви не адміністратор.", show_alert=True)
+        return
+        
+    parts = callback.data.split("_")
+    target_id = int(parts[2])
+    action = parts[3]
+    
+    async with async_session() as session:
+        result = await session.execute(select(User).filter_by(telegram_id=target_id))
+        target = result.scalar_one_or_none()
+        
+        if not target:
+            await callback.answer("Користувача не знайдено.", show_alert=True)
+            return
+            
+        from datetime import datetime, timedelta
+        
+        if action == "mute1":
+            target.muted_until = datetime.utcnow() + timedelta(hours=1)
+            target.mute_reason = "Через адмін-панель"
+            msg = f"🔇 Користувача {target_id} замучено на 1 год."
+        elif action == "mute24":
+            target.muted_until = datetime.utcnow() + timedelta(hours=24)
+            target.mute_reason = "Через адмін-панель"
+            msg = f"🔇 Користувача {target_id} замучено на 24 год."
+        elif action == "ban":
+            target.is_banned = True
+            target.ban_reason = "Через адмін-панель"
+            msg = f"🛑 Користувача {target_id} забанено."
+        elif action == "unban":
+            target.is_banned = False
+            target.ban_reason = None
+            target.muted_until = None
+            target.mute_reason = None
+            msg = f"✅ З користувача {target_id} знято всі обмеження."
+            
+        await session.commit()
+        
+    await callback.answer(msg, show_alert=True)
+    
+    # Refresh the mod menu text to show new status
+    username = f"@{target.username}" if target.username else "без_юзернейму"
+    status = "Нормальний"
+    if target.is_banned:
+        status = "🛑 ЗАБАНЕНИЙ"
+    elif target.muted_until:
+        status = f"🔇 МУТ до {target.muted_until.strftime('%Y-%m-%d %H:%M')}"
+        
+    text = f"🛡 **Модерація користувача**\n\n" \
+           f"ID: `{target_id}`\n" \
+           f"Ім'я: {username}\n" \
+           f"Статус: {status}\n\n" \
+           f"Оберіть дію:"
+           
+    builder = InlineKeyboardBuilder()
+    builder.button(text="🔇 Мут 1 год", callback_data=f"mod_act_{target_id}_mute1")
+    builder.button(text="🔇 Мут 24 год", callback_data=f"mod_act_{target_id}_mute24")
+    builder.button(text="🛑 Бан назавжди", callback_data=f"mod_act_{target_id}_ban")
+    builder.button(text="✅ Зняти обмеження", callback_data=f"mod_act_{target_id}_unban")
+    builder.adjust(2, 1, 1)
+    
+    try:
+        await callback.message.edit_text(text, reply_markup=builder.as_markup(), parse_mode="Markdown")
+    except:
+        pass
