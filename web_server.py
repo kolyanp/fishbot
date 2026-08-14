@@ -814,6 +814,13 @@ async def start_web_server(port: int = 8080):
             logger.error(f"Error serving index.html: {e}")
             return web.FileResponse(os.path.join(webapp_dir, 'index.html'))
     
+    async def assetlinks_handler(request):
+        try:
+            return web.FileResponse(os.path.join(current_dir, 'assetlinks.json'))
+        except Exception as e:
+            return web.json_response({"error": "Not found"}, status=404)
+            
+    app.router.add_get('/.well-known/assetlinks.json', assetlinks_handler)
     app.router.add_get('/', index_handler)
     app.router.add_static('/', webapp_dir, name='static', show_index=False)
     
