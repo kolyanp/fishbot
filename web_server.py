@@ -175,6 +175,68 @@ async def api_catch(request):
         
     return web.json_response({"success": True})
 
+async def api_chat_get(request):
+    user_id = request.query.get('user_id', '')
+    sig = request.query.get('sig', '')
+    
+    if not validate_secure_url(user_id, sig):
+        return web.json_response({"error": "Unauthorized"}, status=401)
+        
+    async with async_session() as session:
+        from sqlalchemy.orm import selectinload
+        # Fetch last 50 messages, ordered by oldest to newest for chat UI
+        result = await session.execute(
+            select(ChatMessage)
+            .options(selectinload(ChatMessage.user))
+            .order_by(ChatMessage.id.desc())
+            .limit(50)
+        )
+        messages = result.scalars().all()
+        messages.reverse() # We need oldest first in UI
+        
+        data = [{
+            "id": m.id,
+            "user_id": m.user.telegram_id,
+            "username": m.user.username if m.user.username else f"Рибалка {m.user.telegram_id}",
+            "text": m.text,
+            "date": m.created_at.isoformat() if m.created_at else None
+        } for m in messages]
+        
+    return web.json_response(data)
+
+async def api_chat_post(request):
+    try:
+        data = await request.json()
+    except:
+        return web.json_response({"error": "Invalid JSON"}, status=400)
+        
+    user_id = data.get('user_id', '')
+    sig = data.get('sig', '')
+    text = data.get('text', '').strip()
+    
+    if not validate_secure_url(user_id, sig):
+        return web.json_response({"error": "Unauthorized"}, status=401)
+        
+    if not text:
+        return web.json_response({"error": "Empty message"}, status=400)
+        
+    if len(text) > 500:
+        return web.json_response({"error": "Message too long"}, status=400)
+        
+    tg_id = int(user_id)
+    
+    async with async_session() as session:
+        result = await session.execute(select(User).filter_by(telegram_id=tg_id))
+        user = result.scalar_one_or_none()
+        
+        if not user:
+            return web.json_response({"error": "User not found"}, status=404)
+            
+        new_msg = ChatMessage(user_id=user.id, text=text)
+        session.add(new_msg)
+        await session.commit()
+        
+    return web.json_response({"status": "ok"})
 async def start_web_server(port: int = 8080):
     # Set max upload size to 20MB for photos
     app = web.Application(client_max_size=1024 * 1024 * 20)
