@@ -401,14 +401,11 @@ async def api_chat_post(request):
         if not user or is_guest:
             return web.json_response({"error": "Unauthorized"}, status=401)
         
-    if not text:
-        return web.json_response({"error": "Empty message"}, status=400)
-        
-    if len(text) > 500:
-        return web.json_response({"error": "Message too long"}, status=400)
-        
-        if not user:
-            return web.json_response({"error": "User not found"}, status=404)
+        if not text:
+            return web.json_response({"error": "Empty message"}, status=400)
+            
+        if len(text) > 500:
+            return web.json_response({"error": "Message too long"}, status=400)
             
         if is_banned:
             return web.json_response({"error": "Ви забанені. Писати заборонено.", "reason": ban_reason}, status=403)
@@ -626,19 +623,15 @@ async def api_leaderboard(request):
 async def api_like(request):
     try:
         data = await request.json()
-        user_id_str = str(data.get('user_id', ''))
-        sig = data.get('sig', '')
         catch_id = data.get('catch_id')
         
-        if not validate_secure_url(user_id_str, sig) or not catch_id:
-            return web.json_response({"error": "Unauthorized"}, status=401)
+        if not catch_id:
+            return web.json_response({"error": "Missing catch_id"}, status=400)
             
-        tg_id = int(user_id_str)
-        
         async with async_session() as session:
-            user, _, _, _, _, _ = await get_user_and_check_auth(tg_id, session)
-            if not user:
-                return web.json_response({"error": "User not found"}, status=404)
+            user, is_admin, is_banned, ban_reason, muted_until, mute_reason, is_guest = await get_user_from_auth(request, session, data)
+            if not user or is_guest:
+                return web.json_response({"error": "Unauthorized"}, status=401)
                 
             from database.models import CatchLike
             from sqlalchemy import func
