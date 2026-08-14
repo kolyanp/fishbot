@@ -1180,7 +1180,7 @@ function renderLeaderboardWeight() {
         else badge = `${index + 1}.`;
         
         html += `
-            <div class="weather-item" onclick="window.openChatWith('${u.username}')" style="display:flex; justify-content:space-between; align-items:center; color: #0f172a !important; padding: 12px; margin-bottom: 5px; cursor: pointer;">
+            <div onclick="window.openChatWith('${u.username}')" style="background: rgba(255,255,255,0.7); border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); display:flex; justify-content:space-between; align-items:center; color: #0f172a !important; padding: 12px; margin-bottom: 5px; cursor: pointer;">
                 <div style="display:flex; align-items:center; gap: 10px;">
                     <div style="font-size: 20px; width: 25px; text-align:center; font-weight:bold;">${badge}</div>
                     <div>
@@ -1218,7 +1218,7 @@ function renderLeaderboardPhoto() {
         const likeIcon = c.is_liked ? '❤️' : '🤍';
         
         html += `
-            <div class="weather-item" onclick="window.showLeaderboardPhoto(${index})" style="display:flex; align-items:center; gap: 15px; color: #0f172a !important; padding: 10px; margin-bottom: 5px; cursor: pointer;">
+            <div onclick="window.showLeaderboardPhoto(${index})" style="background: rgba(255,255,255,0.7); border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); display:flex; align-items:center; gap: 15px; color: #0f172a !important; padding: 10px; margin-bottom: 5px; cursor: pointer;">
                 <div style="font-size: 20px; font-weight:bold; width: 20px; text-align:center;">${badge}</div>
                 <img src="${photoUrl}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px;" alt="Photo">
                 <div style="flex-grow: 1;">
