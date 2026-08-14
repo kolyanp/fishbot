@@ -840,18 +840,14 @@ async def api_users(request):
         data = await request.json()
     except:
         return web.json_response({"error": "Invalid JSON"}, status=400)
-        
-    user_id = data.get('user_id', '')
-    sig = data.get('sig', '')
-    
-    if not validate_secure_url(user_id, sig):
-        return web.json_response({"error": "Unauthorized"}, status=401)
-        
-    tg_id = int(user_id)
-    
     async with async_session() as session:
+        user, is_admin, is_banned, ban_reason, muted_until, mute_reason, is_guest = await get_user_from_auth(request, session, data)
+        
+        if not user or is_guest:
+            return web.json_response({"error": "Unauthorized"}, status=401)
+            
         # Only MAIN ADMIN can see users and assign mods
-        if tg_id != ADMIN_ID:
+        if user.telegram_id != ADMIN_ID:
             return web.json_response({"error": "Forbidden"}, status=403)
             
         result = await session.execute(select(User).order_by(User.id.desc()))
@@ -875,19 +871,16 @@ async def api_set_mod(request):
         data = await request.json()
     except:
         return web.json_response({"error": "Invalid JSON"}, status=400)
-        
-    user_id = data.get('user_id', '')
-    sig = data.get('sig', '')
     target_id = data.get('target_id')
     is_mod = data.get('is_moderator', False)
     
-    if not validate_secure_url(user_id, sig):
-        return web.json_response({"error": "Unauthorized"}, status=401)
-        
-    tg_id = int(user_id)
-    
     async with async_session() as session:
-        if tg_id != ADMIN_ID:
+        user, is_admin, is_banned, ban_reason, muted_until, mute_reason, is_guest = await get_user_from_auth(request, session, data)
+        
+        if not user or is_guest:
+            return web.json_response({"error": "Unauthorized"}, status=401)
+            
+        if user.telegram_id != ADMIN_ID:
             return web.json_response({"error": "Forbidden"}, status=403)
             
         result = await session.execute(select(User).filter_by(id=target_id))

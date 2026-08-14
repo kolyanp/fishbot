@@ -1289,10 +1289,7 @@ async function loadAdminUsers() {
         const res = await fetch(`${API_URL}/api/users`, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                user_id: window.userId,
-                sig: window.authSig
-            })
+            body: JSON.stringify(getAuthBody())
         });
         
         if (res.status === 403) {
@@ -1362,8 +1359,7 @@ window.toggleModerator = async function(targetId, isMod) {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({
-                user_id: window.userId,
-                sig: window.authSig,
+                ...getAuthBody(),
                 target_id: targetId,
                 is_moderator: isMod
             })
