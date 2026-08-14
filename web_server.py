@@ -703,7 +703,10 @@ async def api_auth_google(request):
             result = await session.execute(select(User).filter_by(google_id=google_id))
             user = result.scalar_one_or_none()
             if not user:
-                user = User(google_id=google_id, username=name)
+                import random
+                # Generate a negative telegram_id to bypass SQLite NOT NULL constraint safely
+                fake_tg_id = -random.randint(1000000000, 9999999999)
+                user = User(google_id=google_id, username=name, telegram_id=fake_tg_id)
                 session.add(user)
                 await session.flush()
                 
