@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fishapp-cache-v9';
+const CACHE_NAME = 'fishapp-cache-v10';
 const urlsToCache = [
   './index.html',
   './style.css',

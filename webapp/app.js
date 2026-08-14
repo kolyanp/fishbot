@@ -22,10 +22,20 @@ let appState = {
     tgUser: (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) ? tg.initDataUnsafe.user : (urlUserId && urlSig ? { id: urlUserId } : null)
 };
 
-if (!appState.tgUser && !appState.token && !appState.guestNickname) {
-    document.getElementById('auth-modal').style.display = 'flex';
-} else if (!appState.tgUser && appState.guestNickname && !appState.token) {
+if (!appState.tgUser && !appState.token) {
     appState.isGuest = true;
+    if (!appState.guestNickname) {
+        appState.guestNickname = 'Гість';
+    }
+}
+
+// Add Catch Button on Map Tab
+const addCatchMapBtn = document.getElementById('add-catch-map-btn');
+if (addCatchMapBtn) {
+    addCatchMapBtn.addEventListener('click', () => {
+        const logNav = document.querySelector('[data-target="tab-log"]');
+        if (logNav) logNav.click();
+    });
 }
 
 function requireAuth() {
