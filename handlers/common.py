@@ -19,7 +19,8 @@ def generate_secure_url(user_id: int, tab: str = None) -> str:
         return ""
     sig = hmac.new(BOT_TOKEN.encode(), str(user_id).encode(), hashlib.sha256).hexdigest()
     separator = "&" if "?" in WEBAPP_URL else "?"
-    url = f"{WEBAPP_URL}{separator}user_id={user_id}&sig={sig}"
+    import time
+    url = f"{WEBAPP_URL}{separator}user_id={user_id}&sig={sig}&cb={int(time.time())}"
     if tab:
         url += f"&tab={tab}"
     return url
