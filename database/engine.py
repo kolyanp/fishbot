@@ -29,6 +29,14 @@ async def init_db():
             logger.info("Database migration: Added 'lat' and 'lon' columns to 'catch_logs'.")
         except Exception:
             pass
+            
+        try:
+            from sqlalchemy import text
+            await conn.execute(text("ALTER TABLE chat_messages ADD COLUMN reply_to_id INTEGER"))
+            await conn.execute(text("ALTER TABLE chat_messages ADD COLUMN attachment_catch_id INTEGER"))
+            logger.info("Database migration: Added 'reply_to_id' and 'attachment_catch_id' to 'chat_messages'.")
+        except Exception:
+            pass
 
 async def get_session() -> AsyncSession:
     async with async_session() as session:

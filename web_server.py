@@ -308,20 +308,41 @@ async def api_chat_get(request):
         # Fetch last 50 messages, ordered by oldest to newest for chat UI
         result = await session.execute(
             select(ChatMessage)
-            .options(selectinload(ChatMessage.user))
+            .options(
+                selectinload(ChatMessage.user),
+                selectinload(ChatMessage.reply_to).selectinload(ChatMessage.user),
+                selectinload(ChatMessage.attachment).selectinload(CatchLog.user)
+            )
             .order_by(ChatMessage.id.desc())
             .limit(50)
         )
         messages = result.scalars().all()
         messages.reverse() # We need oldest first in UI
         
-        data = [{
-            "id": m.id,
-            "user_id": m.user.telegram_id,
-            "username": m.user.username if m.user.username else f"Рибалка {m.user.telegram_id}",
-            "text": m.text,
-            "date": m.created_at.isoformat() if m.created_at else None
-        } for m in messages]
+        data = []
+        for m in messages:
+            msg_data = {
+                "id": m.id,
+                "user_id": m.user.telegram_id,
+                "username": m.user.username if m.user.username else f"Рибалка {m.user.telegram_id}",
+                "text": m.text,
+                "date": m.created_at.isoformat() if m.created_at else None
+            }
+            if m.reply_to:
+                msg_data["reply_to"] = {
+                    "id": m.reply_to.id,
+                    "username": m.reply_to.user.username if m.reply_to.user.username else f"Рибалка {m.reply_to.user.telegram_id}",
+                    "text": m.reply_to.text[:50] + ("..." if len(m.reply_to.text) > 50 else "")
+                }
+            if m.attachment:
+                msg_data["attachment"] = {
+                    "id": m.attachment.id,
+                    "photo_url": f"/{m.attachment.photo_id}" if m.attachment.photo_id else None,
+                    "species": m.attachment.fish_species,
+                    "weight": m.attachment.weight,
+                    "username": m.attachment.user.username if m.attachment.user.username else f"Рибалка {m.attachment.user.telegram_id}"
+                }
+            data.append(msg_data)
         
     return web.json_response({
         "is_admin": is_admin if user else False,
@@ -342,6 +363,8 @@ async def api_chat_post(request):
     user_id = data.get('user_id', '')
     sig = data.get('sig', '')
     text = data.get('text', '').strip()
+    reply_to_id = data.get('reply_to_id')
+    attachment_catch_id = data.get('attachment_catch_id')
     
     if not validate_secure_url(user_id, sig):
         return web.json_response({"error": "Unauthorized"}, status=401)
@@ -366,7 +389,12 @@ async def api_chat_post(request):
         if muted_until and muted_until > datetime.utcnow():
             return web.json_response({"error": "У вас мут чату.", "reason": mute_reason}, status=403)
             
-        new_msg = ChatMessage(user_id=user.id, text=text)
+        new_msg = ChatMessage(
+            user_id=user.id, 
+            text=text,
+            reply_to_id=reply_to_id if reply_to_id else None,
+            attachment_catch_id=attachment_catch_id if attachment_catch_id else None
+        )
         session.add(new_msg)
         await session.commit()
         
@@ -561,6 +589,8 @@ async def api_leaderboard(request):
                 "id": catch.id,
                 "species": catch.fish_species,
                 "weight": catch.weight,
+                "location": catch.location if catch.location else "Без назви",
+                "date": catch.created_at.isoformat() if catch.created_at else None,
                 "photo_url": f"/{catch.photo_id}" if catch.photo_id else None,
                 "username": catch.user.username if catch.user.username else "Без_імені",
                 "likes": likes_count,

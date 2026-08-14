@@ -461,7 +461,7 @@ async function initGlobalMap() {
                 
                 const isMe = myId === c.user_id?.toString();
                 
-                let actionsHtml = `<button onclick="window.openChatWith('${c.username}')" style="margin-top: 8px; width: 100%; background: #3b82f6; color: white; border: none; padding: 5px; border-radius: 5px; cursor: pointer; font-size: 12px;">Написати 💬</button>`;
+                let actionsHtml = `<button onclick="window.openChatWith('${c.username}', ${c.id}, '${c.species.replace(/'/g, "\\'")}', ${c.weight})" style="margin-top: 8px; width: 100%; background: #3b82f6; color: white; border: none; padding: 5px; border-radius: 5px; cursor: pointer; font-size: 12px;">Написати 💬</button>`;
                 
                 if (isAdmin || isMe) {
                     actionsHtml += `<div style="display:flex; gap:5px; margin-top:5px;">
@@ -513,7 +513,7 @@ document.querySelector('[data-target="tab-map"]').addEventListener('click', init
 setTimeout(initGlobalMap, 500);
 
 // --- CHAT LOGIC ---
-window.openChatWith = function(username) {
+window.openChatWith = function(username, catchId = null, species = null, weight = null) {
     document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
     
@@ -521,7 +521,17 @@ window.openChatWith = function(username) {
     document.querySelector('.nav-item[data-target="tab-chat"]').classList.add('active');
     
     const input = document.getElementById('chat-input');
-    input.value = '@' + username.replace('@', '') + ', ';
+    
+    if (catchId) {
+        window.cancelChatPreview(); // clear replies
+        document.getElementById('attachment-catch-id').value = catchId;
+        document.getElementById('chat-preview-bar').style.display = 'block';
+        document.getElementById('preview-title').innerText = 'Прикріплено фото:';
+        document.getElementById('preview-title').style.color = '#10b981';
+        document.getElementById('preview-content').innerText = `🎣 ${species} (${weight} кг) від @${username}`;
+    } else {
+        input.value = '@' + username.replace('@', '') + ', ';
+    }
     input.focus();
     
     loadChat();
@@ -600,11 +610,35 @@ async function loadChat() {
             
             const nameHtml = !isMe ? `<div style="font-weight: bold; font-size: 11px; color: #0369a1; margin-bottom: 3px;">${m.username}</div>` : '';
             
+            let replyHtml = '';
+            if (m.reply_to) {
+                replyHtml = `<div style="background: rgba(0,0,0,0.1); border-left: 3px solid #3b82f6; padding: 4px 8px; margin-bottom: 5px; border-radius: 4px; font-size: 11px;">
+                    <strong style="color: #0369a1;">${m.reply_to.username}</strong><br>
+                    <span style="opacity: 0.8;">${m.reply_to.text}</span>
+                </div>`;
+            }
+            
+            let attachHtml = '';
+            if (m.attachment) {
+                const img = m.attachment.photo_url ? `<img src="${API_URL}${m.attachment.photo_url}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 5px;">` : '';
+                attachHtml = `<div style="background: rgba(255,255,255,0.8); border: 1px solid #cbd5e1; padding: 5px; margin-bottom: 5px; border-radius: 5px; display: flex; align-items: center; gap: 8px; font-size: 11px; color: #333;">
+                    ${img}
+                    <div>
+                        <strong>🎣 ${m.attachment.species} (${m.attachment.weight} кг)</strong><br>
+                        <span style="opacity: 0.8;">Улов від ${m.attachment.username}</span>
+                    </div>
+                </div>`;
+            }
+            
             const timeDate = new Date(m.date);
             const timeStr = `${timeDate.getHours().toString().padStart(2, '0')}:${timeDate.getMinutes().toString().padStart(2, '0')}`;
             
             // Actions (Edit/Delete/Mod)
             let actionsHtml = `<div style="display:inline-flex; gap: 5px; margin-right: 8px;">`;
+            
+            // Reply action
+            actionsHtml += `<span onclick="window.replyToMessage(${m.id}, '${m.username.replace(/'/g, "\\'")}', \`${m.text.replace(/`/g, '\\`')}\`)" style="cursor:pointer; font-size:12px; opacity:0.8;">↩️</span>`;
+            
             if (isMe || isAdmin) {
                 actionsHtml += `<span onclick="window.editChatMessage(${m.id}, \`${m.text.replace(/`/g, '\\`')}\`)" style="cursor:pointer; font-size:12px; opacity:0.8;">✏️</span>`;
             }
@@ -621,7 +655,7 @@ async function loadChat() {
                                 <div style="font-size: 10px; opacity: 0.7;">${timeStr}</div>
                                </div>`;
             
-            msgDiv.innerHTML = nameHtml + m.text + bottomRow;
+            msgDiv.innerHTML = nameHtml + replyHtml + attachHtml + m.text + bottomRow;
             chatContainer.appendChild(msgDiv);
         });
         
@@ -699,18 +733,41 @@ document.getElementById('chat-input').addEventListener('keypress', (e) => {
     if (e.key === 'Enter') sendChatMessage();
 });
 
+window.replyToMessage = function(msgId, username, text) {
+    window.cancelChatPreview(); // clear attachments
+    document.getElementById('reply-to-id').value = msgId;
+    document.getElementById('chat-preview-bar').style.display = 'block';
+    document.getElementById('preview-title').innerText = `Відповідь для: ${username}`;
+    document.getElementById('preview-title').style.color = '#3b82f6';
+    document.getElementById('preview-content').innerText = text;
+    document.getElementById('chat-input').focus();
+};
+
+window.cancelChatPreview = function() {
+    document.getElementById('reply-to-id').value = '';
+    document.getElementById('attachment-catch-id').value = '';
+    document.getElementById('chat-preview-bar').style.display = 'none';
+};
+
+document.getElementById('cancel-preview-btn').addEventListener('click', window.cancelChatPreview);
+
 async function sendChatMessage() {
     const input = document.getElementById('chat-input');
     const msgIdInput = document.getElementById('edit-msg-id');
+    const replyIdInput = document.getElementById('reply-to-id');
+    const attachIdInput = document.getElementById('attachment-catch-id');
     
     const text = input.value.trim();
     const msgId = msgIdInput.value;
+    const reply_to_id = replyIdInput.value ? parseInt(replyIdInput.value) : null;
+    const attachment_catch_id = attachIdInput.value ? parseInt(attachIdInput.value) : null;
     
     if (!text) return;
     
     // Optimistic clear
     input.value = '';
     msgIdInput.value = '';
+    window.cancelChatPreview();
     
     const urlParams = new URLSearchParams(window.location.search);
     const user_id = urlParams.get('user_id');
@@ -730,7 +787,7 @@ async function sendChatMessage() {
             res = await fetch(`${API_URL}/api/chat`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_id, sig, text })
+                body: JSON.stringify({ user_id, sig, text, reply_to_id, attachment_catch_id })
             });
         }
         if (!res.ok) {

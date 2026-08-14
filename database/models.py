@@ -57,9 +57,13 @@ class ChatMessage(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     text: Mapped[str] = mapped_column(String(500), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    reply_to_id: Mapped[int] = mapped_column(ForeignKey("chat_messages.id"), nullable=True)
+    attachment_catch_id: Mapped[int] = mapped_column(ForeignKey("catch_logs.id"), nullable=True)
 
-    # Relationship to user
+    # Relationships
     user: Mapped["User"] = relationship()
+    reply_to: Mapped["ChatMessage"] = relationship(remote_side=[id])
+    attachment: Mapped["CatchLog"] = relationship()
 
     def __repr__(self):
         return f"<ChatMessage(id={self.id}, text='{self.text[:20]}')>"
