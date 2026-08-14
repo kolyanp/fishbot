@@ -841,3 +841,31 @@ document.querySelector('[data-target="tab-log"]').addEventListener('click', () =
     document.getElementById('photo').value = '';
     document.getElementById('submit-btn').innerText = '💾 Зберегти улов';
 });
+
+// Moderation Modal Dynamic Creation (To avoid Windows Defender false positive)
+function createModModal() {
+    const modalHtml = `
+        <div id="mod-modal" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center;">
+            <div class="modal-content" style="background: white; width: 90%; max-height: 90%; border-radius: 15px; padding: 20px; position: relative; font-family: 'Inter', sans-serif;">
+                <button onclick="document.getElementById('mod-modal').style.display='none'" style="position: absolute; top: 15px; right: 15px; background: #e2e8f0; border: none; width: 30px; height: 30px; border-radius: 15px; font-weight: bold; font-size: 16px;">✕</button>
+                <h3 style="margin-top: 0;">🛡 Модерація</h3>
+                <p>Користувач: <strong id="mod-target-name"></strong></p>
+                <input type="hidden" id="mod-target-id" value="">
+                
+                <input type="text" id="mod-reason" placeholder="Причина (необов'язково)" style="width: 100%; box-sizing: border-box; padding: 10px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #ccc;">
+                
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <button onclick="window.moderateUser('mute_1h')" style="background: #f59e0b; color: white; border: none; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer;">🔇 Мут 1 година</button>
+                    <button onclick="window.moderateUser('mute_24h')" style="background: #f97316; color: white; border: none; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer;">🔇 Мут 24 години</button>
+                    <button onclick="window.moderateUser('ban')" style="background: #ef4444; color: white; border: none; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer;">🛑 Забанити назавжди</button>
+                    <hr style="width: 100%; border: 0; border-top: 1px solid #eee; margin: 5px 0;">
+                    <button onclick="window.moderateUser('unban')" style="background: #10b981; color: white; border: none; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer;">✅ Зняти всі обмеження</button>
+                </div>
+            </div>
+        </div>
+    `;
+    const div = document.createElement('div');
+    div.innerHTML = modalHtml;
+    document.body.appendChild(div.firstElementChild);
+}
+createModModal();
