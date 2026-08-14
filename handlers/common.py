@@ -14,12 +14,15 @@ router = Router()
 
 def get_main_keyboard() -> ReplyKeyboardMarkup:
     add_catch_btn = KeyboardButton(text="🎣 Додати улов")
+    forecast_btn = KeyboardButton(text="🌦 Прогноз кльову")
+    
     if WEBAPP_URL:
         add_catch_btn = KeyboardButton(text="🎣 Додати улов", web_app=WebAppInfo(url=WEBAPP_URL))
+        forecast_btn = KeyboardButton(text="🌦 Прогноз кльову", web_app=WebAppInfo(url=WEBAPP_URL))
         
     return ReplyKeyboardMarkup(
         keyboard=[
-            [add_catch_btn, KeyboardButton(text="🌦 Прогноз кльову")],
+            [add_catch_btn, forecast_btn],
             [KeyboardButton(text="📖 Довідка")]
         ],
         resize_keyboard=True
