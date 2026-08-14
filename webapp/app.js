@@ -548,6 +548,8 @@ async function initGlobalMap() {
 
 // Add catch button on map tab
 document.getElementById('add-catch-map-btn').addEventListener('click', () => {
+    if (!requireAuth()) return;
+    
     // Switch to log tab
     document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
