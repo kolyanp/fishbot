@@ -6,3 +6,6 @@ fishbot.db
 .venv/
 venv/
 env/
+.zip
+photos/
+fishbot.db
