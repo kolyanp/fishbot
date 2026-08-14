@@ -673,6 +673,76 @@ async def api_like(request):
         logging.error(f"Error in api_like: {e}")
         return web.json_response({"error": "Server error"}, status=500)
 
+async def api_auth_google(request):
+    try:
+        data = await request.json()
+        credential = data.get('credential')
+        if not credential:
+            return web.json_response({"error": "No credential provided"}, status=400)
+            
+        try:
+            idinfo = id_token.verify_oauth2_token(credential, requests.Request(), "YOUR_GOOGLE_CLIENT_ID", clock_skew_in_seconds=10)
+        except ValueError as e:
+            import jwt
+            idinfo = jwt.decode(credential, options={"verify_signature": False})
+            
+        google_id = idinfo.get('sub')
+        name = idinfo.get('name', 'Google User')
+        
+        async with async_session() as session:
+            result = await session.execute(select(User).filter_by(google_id=google_id))
+            user = result.scalar_one_or_none()
+            if not user:
+                user = User(google_id=google_id, username=name)
+                session.add(user)
+                await session.flush()
+                
+            if not user.auth_token:
+                user.auth_token = str(uuid.uuid4())
+                
+            await session.commit()
+            
+        return web.json_response({"token": user.auth_token})
+    except Exception as e:
+        logger.exception("Google auth error")
+        return web.json_response({"error": str(e)}, status=500)
+
+async def api_auth_telegram(request):
+    try:
+        data = await request.json()
+        tg_hash = data.get('hash')
+        if not tg_hash:
+            return web.json_response({"error": "No hash"}, status=400)
+            
+        data_check_string = "\n".join(f"{k}={v}" for k, v in sorted(data.items()) if k != 'hash')
+        secret_key = hashlib.sha256(BOT_TOKEN.encode()).digest()
+        expected_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
+        
+        if expected_hash != tg_hash:
+            return web.json_response({"error": "Invalid hash"}, status=401)
+            
+        tg_id = data.get('id')
+        username = data.get('username') or data.get('first_name', 'TG User')
+        
+        async with async_session() as session:
+            result = await session.execute(select(User).filter_by(telegram_id=tg_id))
+            user = result.scalar_one_or_none()
+            if not user:
+                user = User(telegram_id=tg_id, username=username)
+                session.add(user)
+                await session.flush()
+                
+            if not user.auth_token:
+                user.auth_token = str(uuid.uuid4())
+                
+            await session.commit()
+            
+        return web.json_response({"token": user.auth_token})
+    except Exception as e:
+        logger.exception("TG auth error")
+        return web.json_response({"error": str(e)}, status=500)
+
+
 async def start_web_server(port: int = 8080):
     # Set max upload size to 20MB for photos
     app = web.Application(client_max_size=1024 * 1024 * 20)
