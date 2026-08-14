@@ -516,6 +516,7 @@ async def api_leaderboard(request):
         
     async with async_session() as session:
         from database.models import User, CatchLog, CatchLike
+        from sqlalchemy import func, desc
         
         # Leaders by weight
         result = await session.execute(
@@ -589,6 +590,7 @@ async def api_like(request):
                 return web.json_response({"error": "User not found"}, status=404)
                 
             from database.models import CatchLike
+            from sqlalchemy import func
             
             result = await session.execute(
                 select(CatchLike).filter_by(user_id=user.id, catch_id=int(catch_id))
