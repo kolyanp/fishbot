@@ -71,5 +71,29 @@
       "form_factor": "narrow",
       "label": "Скріншот 6"
     }
+  ],
+  "categories": [
+    "sports",
+    "entertainment",
+    "lifestyle"
+  ],
+  "lang": "uk-UA",
+  "dir": "ltr",
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
+  "shortcuts": [
+    {
+      "name": "Головна",
+      "url": "/index.html",
+      "icons": [
+        {
+          "src": "/icon-192-v4.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
   ]
 }
