@@ -1,6 +1,6 @@
 from aiogram import Router, F, Bot
 from aiogram.filters import Command
-from aiogram.types import Message, FSInputFile
+from aiogram.types import Message, FSInputFile, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from sqlalchemy.future import select
 from sqlalchemy import func, desc
 from sqlalchemy.orm import selectinload
@@ -16,6 +16,7 @@ def is_admin(user_id: int) -> bool:
     return ADMIN_ID != 0 and user_id == ADMIN_ID
 
 @router.message(Command("admin"))
+@router.message(F.text == "👑 Адмінка")
 async def cmd_admin(message: Message):
     if not is_admin(message.from_user.id):
         return
@@ -37,18 +38,23 @@ async def cmd_admin(message: Message):
         
     weight_str = f"{total_weight:.1f}" if total_weight else "0"
         
+    admin_kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🎣 Останні 5 уловів", callback_data="admin_recent")],
+            [InlineKeyboardButton(text="📦 Завантажити бекап БД", callback_data="admin_backup")]
+        ]
+    )
+        
     await message.answer(
         f"👑 **Адмін Панель**\n\n"
         f"👥 Користувачів: {users_count}\n"
         f"🐟 Збережених уловів: {catches_count}\n"
         f"⚖️ Загальна вага риби: {weight_str} кг\n"
         f"🏆 Найпопулярніша риба: {popular_fish}\n\n"
-        f"🔧 **Додаткові команди:**\n"
-        f"`/recent` - останні 5 уловів\n"
-        f"`/backup` - завантажити базу даних\n\n"
         f"Щоб зробити розсилку (можна з фото), відправте:\n"
         f"`/broadcast текст вашого повідомлення`",
-        parse_mode="Markdown"
+        parse_mode="Markdown",
+        reply_markup=admin_kb
     )
 
 @router.message(Command("broadcast"))
@@ -127,6 +133,19 @@ async def cmd_recent(message: Message):
         else:
             await message.answer(text)
 
+@router.callback_query(F.data == "admin_recent")
+async def cq_admin_recent(callback: CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        await callback.answer("Ви не адміністратор.", show_alert=True)
+        return
+        
+    await callback.answer()
+    
+    # Create a mock message to reuse the command logic
+    msg = callback.message
+    msg_copy = msg.model_copy(update={"from_user": callback.from_user})
+    await cmd_recent(msg_copy)
+
 @router.message(Command("backup"))
 async def cmd_backup(message: Message):
     if not is_admin(message.from_user.id):
@@ -137,3 +156,14 @@ async def cmd_backup(message: Message):
         await message.answer_document(db_file, caption="📦 Ось резервна копія вашої бази даних.")
     else:
         await message.answer("Базу даних не знайдено.")
+
+@router.callback_query(F.data == "admin_backup")
+async def cq_admin_backup(callback: CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        await callback.answer("Ви не адміністратор.", show_alert=True)
+        return
+        
+    await callback.answer()
+    msg = callback.message
+    msg_copy = msg.model_copy(update={"from_user": callback.from_user})
+    await cmd_backup(msg_copy)

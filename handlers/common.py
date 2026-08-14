@@ -6,7 +6,7 @@ from sqlalchemy.future import select
 import json
 import hmac
 import hashlib
-from config import WEBAPP_URL, BOT_TOKEN
+from config import WEBAPP_URL, BOT_TOKEN, ADMIN_ID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.models import User
@@ -25,10 +25,15 @@ def generate_secure_url(user_id: int, tab: str = None) -> str:
     return url
 
 def get_main_keyboard(user_id: int) -> ReplyKeyboardMarkup:
+    keyboard = [
+        [KeyboardButton(text="🎣 ПОЧАТИ", web_app=WebAppInfo(url=generate_secure_url(user_id)))]
+    ]
+    
+    if ADMIN_ID != 0 and user_id == ADMIN_ID:
+        keyboard.append([KeyboardButton(text="👑 Адмінка")])
+        
     return ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="🎣 ПОЧАТИ", web_app=WebAppInfo(url=generate_secure_url(user_id)))]
-        ],
+        keyboard=keyboard,
         resize_keyboard=True
     )
 
