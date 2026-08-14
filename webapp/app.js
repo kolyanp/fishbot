@@ -214,20 +214,22 @@ document.querySelector('[data-target="tab-history"]').addEventListener('click', 
             list.appendChild(itemDiv);
         });
         
-        document.getElementById('close-modal-btn').addEventListener('click', () => {
-            document.getElementById('catch-modal').style.display = 'none';
-        });
-        
-        // Close modal when clicking outside
-        window.addEventListener('click', (e) => {
-            const modal = document.getElementById('catch-modal');
-            if (e.target === modal) {
-                modal.style.display = 'none';
-            }
-        });
     } catch (e) {
         loading.style.display = 'none';
         list.innerHTML = "<p style='text-align:center;color:red;'>Помилка завантаження (перевірте налаштування домену)</p>";
+    }
+});
+
+// Global Modal Closing Logic for Catch Modal
+document.getElementById('close-modal-btn').addEventListener('click', () => {
+    document.getElementById('catch-modal').style.display = 'none';
+});
+
+// Close modal when clicking outside
+window.addEventListener('click', (e) => {
+    const modal = document.getElementById('catch-modal');
+    if (e.target === modal) {
+        modal.style.display = 'none';
     }
 });
 
