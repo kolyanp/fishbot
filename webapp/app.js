@@ -72,13 +72,20 @@ navItems.forEach(item => {
     item.addEventListener('click', (e) => {
         e.preventDefault();
         
+        const targetId = item.getAttribute('data-target');
+        
+        // Prevent guests from accessing personal tabs
+        if (appState.isGuest && (targetId === 'tab-log' || targetId === 'tab-history')) {
+            document.getElementById('auth-alert-modal').style.display = 'flex';
+            return; // Do not switch tab
+        }
+        
         // Remove active class from all
         navItems.forEach(nav => nav.classList.remove('active'));
         tabContents.forEach(tab => tab.classList.remove('active'));
         
         // Add active class to clicked
         item.classList.add('active');
-        const targetId = item.getAttribute('data-target');
         document.getElementById(targetId).classList.add('active');
     });
 });
