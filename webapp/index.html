@@ -16,8 +16,21 @@
 <body>
     <div id="app-container">
         
-        <!-- Tab 1: Додати улов (Logbook) -->
-        <div id="tab-log" class="tab-content active">
+        <!-- Tab 1: Мапа (Map) - NOW DEFAULT -->
+        <div id="tab-map" class="tab-content active">
+            <div class="glass-container" style="padding: 10px; height: 85vh; display: flex; flex-direction: column; position: relative;">
+                <header style="margin-bottom: 10px; text-align: center;">
+                    <h1 style="margin: 0; font-size: 20px;">🗺 Глобальна мапа уловів</h1>
+                </header>
+                <div id="catches-map" style="flex-grow: 1; border-radius: 12px; z-index: 1;"></div>
+                <button id="add-catch-map-btn" style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 1000; background: #ef4444; color: white; border: none; padding: 12px 24px; border-radius: 30px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4); cursor: pointer;">
+                    ➕ Додати свій улов
+                </button>
+            </div>
+        </div>
+
+        <!-- Tab 2: Щоденник (Log) -->
+        <div id="tab-log" class="tab-content">
             <div class="glass-container">
         <!-- Header -->
         <header class="header">
@@ -158,16 +171,6 @@
             </div>
         </div>
         
-        <!-- Tab 4: Мапа (Map) -->
-        <div id="tab-map" class="tab-content">
-            <div class="glass-container" style="padding: 10px; height: 85vh; display: flex; flex-direction: column;">
-                <header style="margin-bottom: 10px; text-align: center;">
-                    <h1 style="margin: 0; font-size: 20px;">🗺 Мої місця лову</h1>
-                </header>
-                <div id="catches-map" style="flex-grow: 1; border-radius: 12px; z-index: 1;"></div>
-            </div>
-        </div>
-        
         <!-- Modal for Catch Details -->
         <div id="catch-modal" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center;">
             <div class="modal-content" style="background: white; width: 90%; max-height: 90%; border-radius: 15px; padding: 20px; overflow-y: auto; position: relative;">
@@ -188,7 +191,11 @@
         <!-- Modal for Map Picker -->
         <div id="map-picker-modal" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center;">
             <div class="modal-content" style="background: white; width: 95%; height: 80%; border-radius: 15px; padding: 15px; display: flex; flex-direction: column; position: relative;">
-                <h3 style="margin: 0 0 10px 0; font-size: 18px; text-align: center;">Виберіть точку на карті</h3>
+                <h3 style="margin: 0 0 5px 0; font-size: 18px; text-align: center;">Виберіть точку на карті</h3>
+                <p style="margin: 0 0 10px 0; font-size: 11px; text-align: center; color: #ef4444;">
+                    * Якщо ви вкажете точку, вона буде видима на Глобальній мапі іншим рибалкам. 
+                    Не додавайте координати "секретних" місць! 😉
+                </p>
                 <div style="display: flex; gap: 10px; margin-bottom: 10px;">
                     <button id="find-me-btn" style="flex: 1; background: #e2e8f0; border: none; padding: 10px; border-radius: 8px; font-weight: bold;">📍 Знайти мене</button>
                     <button id="save-loc-btn" style="flex: 1; background: #3b82f6; color: white; border: none; padding: 10px; border-radius: 8px; font-weight: bold;">✅ Зберегти</button>
@@ -202,7 +209,11 @@
 
     <!-- Bottom Navigation Bar -->
     <nav class="bottom-nav">
-        <a href="#" class="nav-item active" data-target="tab-log">
+        <a href="#" class="nav-item active" data-target="tab-map">
+            <span class="nav-icon">🗺</span>
+            <span class="nav-text">Мапа</span>
+        </a>
+        <a href="#" class="nav-item" data-target="tab-log">
             <span class="nav-icon">📝</span>
             <span class="nav-text">Щоденник</span>
         </a>
@@ -213,10 +224,6 @@
         <a href="#" class="nav-item" data-target="tab-forecast">
             <span class="nav-icon">🌤</span>
             <span class="nav-text">Прогноз</span>
-        </a>
-        <a href="#" class="nav-item" data-target="tab-map">
-            <span class="nav-icon">🗺</span>
-            <span class="nav-text">Мапа</span>
         </a>
     </nav>
 

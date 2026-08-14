@@ -58,6 +58,39 @@ async def api_history(request):
         
     return web.json_response(data)
 
+async def api_global_map(request):
+    user_id = request.query.get('user_id', '')
+    sig = request.query.get('sig', '')
+    
+    if not validate_secure_url(user_id, sig):
+        return web.json_response({"error": "Unauthorized"}, status=401)
+        
+    async with async_session() as session:
+        from sqlalchemy.orm import selectinload
+        result = await session.execute(
+            select(CatchLog)
+            .options(selectinload(CatchLog.user))
+            .filter(CatchLog.lat.is_not(None))
+            .filter(CatchLog.lon.is_not(None))
+            .order_by(CatchLog.id.desc())
+            .limit(100)
+        )
+        catches = result.scalars().all()
+        
+        data = [{
+            "id": c.id,
+            "species": c.fish_species,
+            "weight": c.weight,
+            "location": c.location if c.location else "Без назви",
+            "lat": c.lat,
+            "lon": c.lon,
+            "date": c.created_at.isoformat() if c.created_at else None,
+            "photo_url": f"/{c.photo_id}" if c.photo_id else None,
+            "username": c.user.username if c.user.username else f"Рибалка {c.user.telegram_id}"
+        } for c in catches]
+        
+    return web.json_response(data)
+
 async def api_catch(request):
     # Process multipart form data
     reader = await request.multipart()
@@ -157,6 +190,7 @@ async def start_web_server(port: int = 8080):
     
     # Add API Routes
     cors.add(app.router.add_get('/api/history', api_history))
+    cors.add(app.router.add_get('/api/global_map', api_global_map))
     cors.add(app.router.add_post('/api/catch', api_catch))
     
     # Path to directories

@@ -376,7 +376,7 @@ searchBtn.addEventListener('click', async () => {
 // --- MAIN CATCHES MAP LOGIC ---
 let catchesMap = null;
 
-document.querySelector('[data-target="tab-map"]').addEventListener('click', async () => {
+async function initGlobalMap() {
     if (!catchesMap) {
         catchesMap = L.map('catches-map').setView([48.3794, 31.1656], 5);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -394,19 +394,19 @@ document.querySelector('[data-target="tab-map"]').addEventListener('click', asyn
     });
     
     // Load data if empty
-    if (!window.historyData || window.historyData.length === 0) {
+    if (!window.globalMapData || window.globalMapData.length === 0) {
         const queryStr = window.location.search;
         try {
-            const res = await fetch(`${API_URL}/api/history${queryStr}`);
-            window.historyData = await res.json();
+            const res = await fetch(`${API_URL}/api/global_map${queryStr}`);
+            window.globalMapData = await res.json();
         } catch (e) { console.error(e); }
     }
     
-    if (window.historyData && window.historyData.length > 0) {
+    if (window.globalMapData && window.globalMapData.length > 0) {
         let hasPins = false;
         const bounds = L.latLngBounds();
         
-        window.historyData.forEach(c => {
+        window.globalMapData.forEach(c => {
             if (c.lat && c.lon) {
                 hasPins = true;
                 const photoUrl = c.photo_url ? `${API_URL}${c.photo_url}` : null;
@@ -414,11 +414,13 @@ document.querySelector('[data-target="tab-map"]').addEventListener('click', asyn
                 const date = new Date(c.date).toLocaleDateString('uk-UA');
                 
                 const popupContent = `
-                    <div style="text-align:center; min-width: 120px;">
+                    <div style="text-align:center; min-width: 130px;">
                         ${imgHtml}
-                        <h4 style="margin: 5px 0;">${c.species}</h4>
-                        <p style="margin: 0; font-size:12px;">Вага: ${c.weight} кг</p>
-                        <p style="margin: 0; font-size:12px;">${date}</p>
+                        <h4 style="margin: 5px 0; color: #0369a1;">${c.species}</h4>
+                        <p style="margin: 0; font-size:12px; font-weight:bold;">👤 ${c.username}</p>
+                        <p style="margin: 2px 0 0 0; font-size:12px;">⚖️ ${c.weight} кг</p>
+                        <p style="margin: 2px 0 0 0; font-size:11px; opacity:0.8;">📍 ${c.location}</p>
+                        <p style="margin: 2px 0 0 0; font-size:11px; opacity:0.8;">📅 ${date}</p>
                     </div>
                 `;
                 
@@ -431,4 +433,20 @@ document.querySelector('[data-target="tab-map"]').addEventListener('click', asyn
             catchesMap.fitBounds(bounds, { padding: [20, 20], maxZoom: 14 });
         }
     }
+}
+
+// Add catch button on map tab
+document.getElementById('add-catch-map-btn').addEventListener('click', () => {
+    // Switch to log tab
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    
+    document.getElementById('tab-log').classList.add('active');
+    document.querySelector('.nav-item[data-target="tab-log"]').classList.add('active');
 });
+
+// Trigger map load when clicking tab
+document.querySelector('[data-target="tab-map"]').addEventListener('click', initGlobalMap);
+
+// Init map immediately on load since it's the active tab
+setTimeout(initGlobalMap, 500);
