@@ -186,7 +186,11 @@ document.getElementById('save-loc-btn').addEventListener('click', () => {
         const lon = pickerMarker.getLatLng().lng;
         document.getElementById('loc_lat').value = lat;
         document.getElementById('loc_lon').value = lon;
-        document.getElementById('location').value = `📍 Обрано на карті`;
+        
+        const locInput = document.getElementById('location');
+        if (!locInput.value.trim()) {
+            locInput.value = `📍 Обрано на карті`;
+        }
     }
     document.getElementById('map-picker-modal').style.display = 'none';
 });
