@@ -1149,7 +1149,7 @@ window.showLeaderboardPhoto = (index) => {
     
     document.getElementById('modal-species').innerText = c.species;
     document.getElementById('modal-weight').innerText = c.weight;
-    document.getElementById('modal-bait').innerText = 'Не вказано (Топ)';
+    document.getElementById('modal-bait').innerText = c.bait || 'Не вказано';
     document.getElementById('modal-location').innerText = c.location || 'Не вказано';
     
     const dateStr = c.date ? new Date(c.date).toLocaleDateString('uk-UA') : 'Невідомо';

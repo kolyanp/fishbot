@@ -625,6 +625,7 @@ async def api_leaderboard(request):
                 "id": catch.id,
                 "species": catch.fish_species,
                 "weight": catch.weight,
+                "bait": catch.bait,
                 "location": catch.location if catch.location else "Без назви",
                 "date": catch.created_at.isoformat() if catch.created_at else None,
                 "photo_url": f"/{catch.photo_id}" if catch.photo_id else None,
