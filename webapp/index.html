@@ -238,6 +238,24 @@
             </div>
         </div>
 
+        <!-- Tab 6: Рейтинг (Leaderboard) -->
+        <div id="tab-leaderboard" class="tab-content">
+            <div class="glass-container" style="height: 85vh; display: flex; flex-direction: column; padding: 10px;">
+                <header style="margin-bottom: 10px; text-align: center;">
+                    <h1 style="margin: 0; font-size: 20px;">🏆 Топ Рибалок</h1>
+                </header>
+                
+                <div style="display: flex; gap: 5px; margin-bottom: 10px; background: rgba(255,255,255,0.4); padding: 5px; border-radius: 10px;">
+                    <button id="btn-leader-weight" style="flex:1; background: #3b82f6; color: white; border: none; padding: 8px; border-radius: 8px; font-weight: bold; font-size: 12px;">⚖️ За вагою</button>
+                    <button id="btn-leader-photo" style="flex:1; background: transparent; color: #333; border: none; padding: 8px; border-radius: 8px; font-weight: bold; font-size: 12px;">❤️ Кращі фото</button>
+                </div>
+
+                <div id="leaderboard-content" style="flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-bottom: 20px;">
+                    <div style="text-align:center; color: #666; font-size: 14px; margin-top: 20px;">Завантаження рейтингу...</div>
+                </div>
+            </div>
+        </div>
+
     </div>
 
     <!-- Bottom Navigation Bar -->
@@ -262,8 +280,12 @@
             <span class="nav-icon">💬</span>
             <span class="nav-text">Чат</span>
         </a>
+        <a href="#" class="nav-item" data-target="tab-leaderboard">
+            <span class="nav-icon">🏆</span>
+            <span class="nav-text">Топ</span>
+        </a>
     </nav>
 
-    <script src="app.js?v=18"></script>
+    <script src="app.js?v=20"></script>
 </body>
 </html>

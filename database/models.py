@@ -44,6 +44,7 @@ class CatchLog(Base):
 
     # Relationship to user
     user: Mapped["User"] = relationship(back_populates="logs")
+    likes: Mapped[list["CatchLike"]] = relationship(back_populates="catch", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<CatchLog(fish_species={self.fish_species}, weight={self.weight})>"
@@ -62,3 +63,19 @@ class ChatMessage(Base):
 
     def __repr__(self):
         return f"<ChatMessage(id={self.id}, text='{self.text[:20]}')>"
+
+class CatchLike(Base):
+    __tablename__ = 'catch_likes'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    catch_id: Mapped[int] = mapped_column(ForeignKey("catch_logs.id"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    user: Mapped["User"] = relationship()
+    catch: Mapped["CatchLog"] = relationship(back_populates="likes")
+
+    def __repr__(self):
+        return f"<CatchLike(user_id={self.user_id}, catch_id={self.catch_id})>"
+

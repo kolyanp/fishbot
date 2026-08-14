@@ -49,8 +49,12 @@ async def api_history(request):
         if not user:
             return web.json_response([])
             
+        from sqlalchemy.orm import selectinload
         result = await session.execute(
-            select(CatchLog).filter_by(user_id=user.id).order_by(CatchLog.id.desc())
+            select(CatchLog)
+            .options(selectinload(CatchLog.likes))
+            .filter_by(user_id=user.id)
+            .order_by(CatchLog.id.desc())
         )
         catches = result.scalars().all()
         
@@ -63,7 +67,9 @@ async def api_history(request):
             "lat": c.lat,
             "lon": c.lon,
             "date": c.created_at.isoformat() if c.created_at else None,
-            "photo_url": f"/{c.photo_id}" if c.photo_id else None
+            "photo_url": f"/{c.photo_id}" if c.photo_id else None,
+            "likes": len(c.likes),
+            "is_liked": any(l.user_id == user.id for l in c.likes)
         } for c in catches]
         
     return web.json_response({
@@ -89,6 +95,7 @@ async def api_global_map(request):
         result = await session.execute(
             select(CatchLog)
             .options(selectinload(CatchLog.user))
+            .options(selectinload(CatchLog.likes))
             .filter(CatchLog.lat.is_not(None))
             .filter(CatchLog.lon.is_not(None))
             .order_by(CatchLog.id.desc())
@@ -105,7 +112,9 @@ async def api_global_map(request):
             "lon": c.lon,
             "date": c.created_at.isoformat() if c.created_at else None,
             "photo_url": f"/{c.photo_id}" if c.photo_id else None,
-            "username": c.user.username if c.user.username else f"Рибалка {c.user.telegram_id}"
+            "username": c.user.username if c.user.username else f"Рибалка {c.user.telegram_id}",
+            "likes": len(c.likes),
+            "is_liked": any(l.user_id == user.id for l in c.likes) if user else False
         } for c in catches]
         
     return web.json_response({
@@ -498,6 +507,116 @@ async def api_moderate(request):
         
     return web.json_response({"success": True})
 
+async def api_leaderboard(request):
+    user_id = request.query.get('user_id', '')
+    sig = request.query.get('sig', '')
+    
+    if not validate_secure_url(user_id, sig):
+        return web.json_response({"error": "Unauthorized"}, status=401)
+        
+    async with async_session() as session:
+        from database.models import User, CatchLog, CatchLike
+        
+        # Leaders by weight
+        result = await session.execute(
+            select(
+                User,
+                func.sum(CatchLog.weight).label('total_weight'),
+                func.count(CatchLog.id).label('total_catches'),
+                func.max(CatchLog.weight).label('max_weight')
+            )
+            .join(CatchLog)
+            .group_by(User.id)
+            .order_by(desc('total_weight'))
+            .limit(20)
+        )
+        leaders_by_weight = []
+        for u, tw, tc, mw in result.all():
+            leaders_by_weight.append({
+                "telegram_id": u.telegram_id,
+                "username": u.username if u.username else "Без_імені",
+                "total_weight": round(tw, 2) if tw else 0,
+                "total_catches": tc or 0,
+                "max_weight": mw or 0
+            })
+            
+        # Top photos by likes
+        from sqlalchemy.orm import selectinload
+        result = await session.execute(
+            select(
+                CatchLog,
+                func.count(CatchLike.id).label('likes_count')
+            )
+            .join(CatchLike, CatchLike.catch_id == CatchLog.id)
+            .options(selectinload(CatchLog.user))
+            .filter(CatchLog.photo_id.is_not(None))
+            .group_by(CatchLog.id)
+            .order_by(desc('likes_count'))
+            .limit(10)
+        )
+        top_photos = []
+        for catch, likes_count in result.all():
+            top_photos.append({
+                "id": catch.id,
+                "species": catch.fish_species,
+                "weight": catch.weight,
+                "photo_url": f"/{catch.photo_id}" if catch.photo_id else None,
+                "username": catch.user.username if catch.user.username else "Без_імені",
+                "likes": likes_count,
+                "is_liked": False
+            })
+            
+    return web.json_response({
+        "weight_leaders": leaders_by_weight,
+        "top_photos": top_photos
+    })
+
+async def api_like(request):
+    try:
+        data = await request.json()
+        user_id_str = str(data.get('user_id', ''))
+        sig = data.get('sig', '')
+        catch_id = data.get('catch_id')
+        
+        if not validate_secure_url(user_id_str, sig) or not catch_id:
+            return web.json_response({"error": "Unauthorized"}, status=401)
+            
+        tg_id = int(user_id_str)
+        
+        async with async_session() as session:
+            user, _, _, _, _, _ = await get_user_and_check_auth(tg_id, session)
+            if not user:
+                return web.json_response({"error": "User not found"}, status=404)
+                
+            from database.models import CatchLike
+            
+            result = await session.execute(
+                select(CatchLike).filter_by(user_id=user.id, catch_id=int(catch_id))
+            )
+            like = result.scalar_one_or_none()
+            
+            if like:
+                await session.delete(like)
+                action = "unliked"
+            else:
+                new_like = CatchLike(user_id=user.id, catch_id=int(catch_id))
+                session.add(new_like)
+                action = "liked"
+                
+            await session.commit()
+            
+            result = await session.execute(
+                select(func.count(CatchLike.id)).filter_by(catch_id=int(catch_id))
+            )
+            likes_count = result.scalar()
+            
+        return web.json_response({"success": True, "action": action, "likes_count": likes_count})
+        
+    except Exception as e:
+        import logging
+        logging.error(f"Error in api_like: {e}")
+        return web.json_response({"error": "Server error"}, status=500)
+
 async def start_web_server(port: int = 8080):
     # Set max upload size to 20MB for photos
     app = web.Application(client_max_size=1024 * 1024 * 20)
@@ -521,6 +640,8 @@ async def start_web_server(port: int = 8080):
     cors.add(app.router.add_put('/api/chat', api_chat_put))
     cors.add(app.router.add_delete('/api/chat', api_chat_delete))
     cors.add(app.router.add_post('/api/moderate', api_moderate))
+    cors.add(app.router.add_get('/api/leaderboard', api_leaderboard))
+    cors.add(app.router.add_post('/api/like', api_like))
     
     # Path to directories
     current_dir = os.path.dirname(os.path.abspath(__file__))

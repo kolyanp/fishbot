@@ -105,14 +105,18 @@ document.querySelector('[data-target="tab-history"]').addEventListener('click', 
             const itemDiv = document.createElement('div');
             itemDiv.className = 'weather-item';
             itemDiv.style.cssText = 'width:100%; margin-bottom:10px; display:flex; flex-direction:row; align-items:center; cursor:pointer; color: #0f172a !important;';
+            const likeIcon = catchItem.is_liked ? '❤️' : '🤍';
+            const likeHtml = catchItem.photo_url ? `<button onclick="window.likeCatch(${catchItem.id}, event, this)" style="background:none; border:none; cursor:pointer; font-size: 16px; margin-left: 10px;">${likeIcon} ${catchItem.likes}</button>` : '';
+
             itemDiv.innerHTML = `
                 ${photoHtml}
                 <div style="flex-grow: 1;">
                     <strong>${catchItem.species}</strong><br>
                     <small>${catchItem.weight} кг | ${catchItem.bait}</small>
                 </div>
-                <div style="text-align:right;">
+                <div style="text-align:right; display:flex; flex-direction:column; align-items:flex-end;">
                     <small>${date}</small>
+                    ${likeHtml}
                 </div>
             `;
             
@@ -466,6 +470,9 @@ async function initGlobalMap() {
                     </div>`;
                 }
                 
+                const likeIcon = c.is_liked ? '❤️' : '🤍';
+                const likeHtml = c.photo_url ? `<button onclick="window.likeCatch(${c.id}, event, this)" style="margin-top: 5px; width: 100%; background: none; border: 1px solid #ccc; color: #333; padding: 5px; border-radius: 5px; cursor: pointer; font-size: 12px;">${likeIcon} ${c.likes}</button>` : '';
+                
                 const popupContent = `
                     <div style="text-align: center; width: 150px; font-family: 'Inter', sans-serif;">
                         ${photoHtml}
@@ -474,6 +481,7 @@ async function initGlobalMap() {
                         <p style="margin: 2px 0 0 0; font-size:12px;">⚖️ ${c.weight} кг</p>
                         <p style="margin: 2px 0 0 0; font-size:11px; opacity:0.8;">📍 ${c.location}</p>
                         <p style="margin: 2px 0 0 0; font-size:11px; opacity:0.8;">📅 ${date}</p>
+                        ${likeHtml}
                         ${actionsHtml}
                     </div>
                 `;
@@ -869,3 +877,151 @@ function createModModal() {
     document.body.appendChild(div.firstElementChild);
 }
 createModModal();
+
+window.likeCatch = async (catchId, event, btnElement) => {
+    if (event) event.stopPropagation(); // Prevent opening modal
+    
+    try {
+        const queryStr = window.location.search; // ?user_id=...&sig=...
+        let user_id = "";
+        let sig = "";
+        if (queryStr) {
+            const params = new URLSearchParams(queryStr);
+            user_id = params.get('user_id');
+            sig = params.get('sig');
+        }
+        
+        const res = await fetch(`${API_URL}/api/like`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ user_id, sig, catch_id: catchId })
+        });
+        
+        if (!res.ok) throw new Error("API error");
+        const data = await res.json();
+        
+        if (data.success) {
+            // Update button UI
+            btnElement.innerHTML = data.action === 'liked' ? `❤️ ${data.likes_count}` : `🤍 ${data.likes_count}`;
+            // Add a little pop animation
+            btnElement.style.transform = 'scale(1.2)';
+            setTimeout(() => { btnElement.style.transform = 'scale(1)'; }, 200);
+            
+            // Re-render leaderboard if it's open
+            if (document.getElementById('tab-leaderboard').classList.contains('active')) {
+                // Not ideal, but we can just let user refresh or we can re-fetch
+            }
+        }
+    } catch (e) {
+        tg.showAlert("Помилка оцінки фото");
+    }
+};
+
+// Leaderboard Logic
+document.querySelector('[data-target="tab-leaderboard"]').addEventListener('click', async () => {
+    const list = document.getElementById('leaderboard-content');
+    list.innerHTML = "<div style='text-align:center; color: #666; font-size: 14px; margin-top: 20px;'>Завантаження рейтингу...</div>";
+    
+    try {
+        const queryStr = window.location.search;
+        const res = await fetch(`${API_URL}/api/leaderboard${queryStr}`);
+        if (!res.ok) throw new Error("API error");
+        const data = await res.json();
+        
+        window.leaderboardData = data;
+        
+        // Default render: Weight
+        renderLeaderboardWeight();
+        
+    } catch (e) {
+        list.innerHTML = "<p style='text-align:center;color:red;'>Помилка завантаження рейтингу</p>";
+    }
+});
+
+document.getElementById('btn-leader-weight').addEventListener('click', (e) => {
+    e.target.style.background = '#3b82f6';
+    e.target.style.color = 'white';
+    document.getElementById('btn-leader-photo').style.background = 'transparent';
+    document.getElementById('btn-leader-photo').style.color = '#333';
+    renderLeaderboardWeight();
+});
+
+document.getElementById('btn-leader-photo').addEventListener('click', (e) => {
+    e.target.style.background = '#3b82f6';
+    e.target.style.color = 'white';
+    document.getElementById('btn-leader-weight').style.background = 'transparent';
+    document.getElementById('btn-leader-weight').style.color = '#333';
+    renderLeaderboardPhoto();
+});
+
+function renderLeaderboardWeight() {
+    const list = document.getElementById('leaderboard-content');
+    list.innerHTML = '';
+    
+    if (!window.leaderboardData || !window.leaderboardData.weight_leaders.length) {
+        list.innerHTML = "<p style='text-align:center;'>Рейтинг порожній</p>";
+        return;
+    }
+    
+    let html = '';
+    window.leaderboardData.weight_leaders.forEach((u, index) => {
+        let badge = '';
+        if (index === 0) badge = '🥇';
+        else if (index === 1) badge = '🥈';
+        else if (index === 2) badge = '🥉';
+        else badge = `${index + 1}.`;
+        
+        html += `
+            <div class="weather-item" style="display:flex; justify-content:space-between; align-items:center; color: #0f172a !important; padding: 12px; margin-bottom: 5px;">
+                <div style="display:flex; align-items:center; gap: 10px;">
+                    <div style="font-size: 20px; width: 25px; text-align:center; font-weight:bold;">${badge}</div>
+                    <div>
+                        <div style="font-weight:bold;">@${u.username}</div>
+                        <div style="font-size: 11px; opacity:0.8;">Уловів: ${u.total_catches} | Рекорд: ${u.max_weight} кг</div>
+                    </div>
+                </div>
+                <div style="font-weight:bold; color: #3b82f6; font-size: 16px;">
+                    ${u.total_weight} кг
+                </div>
+            </div>
+        `;
+    });
+    list.innerHTML = html;
+}
+
+function renderLeaderboardPhoto() {
+    const list = document.getElementById('leaderboard-content');
+    list.innerHTML = '';
+    
+    if (!window.leaderboardData || !window.leaderboardData.top_photos.length) {
+        list.innerHTML = "<p style='text-align:center;'>Ще немає фото з оцінками</p>";
+        return;
+    }
+    
+    let html = '';
+    window.leaderboardData.top_photos.forEach((c, index) => {
+        let badge = '';
+        if (index === 0) badge = '🥇';
+        else if (index === 1) badge = '🥈';
+        else if (index === 2) badge = '🥉';
+        else badge = `${index + 1}.`;
+        
+        const photoUrl = c.photo_url ? `${API_URL}${c.photo_url}` : '';
+        const likeIcon = c.is_liked ? '❤️' : '🤍';
+        
+        html += `
+            <div class="weather-item" style="display:flex; align-items:center; gap: 15px; color: #0f172a !important; padding: 10px; margin-bottom: 5px;">
+                <div style="font-size: 20px; font-weight:bold; width: 20px; text-align:center;">${badge}</div>
+                <img src="${photoUrl}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px;" alt="Photo">
+                <div style="flex-grow: 1;">
+                    <div style="font-weight:bold;">${c.species} (${c.weight} кг)</div>
+                    <div style="font-size: 11px; opacity:0.8;">@${c.username}</div>
+                </div>
+                <button onclick="window.likeCatch(${c.id}, event, this)" style="background:none; border:none; cursor:pointer; font-size: 18px; transition: transform 0.2s;">
+                    ${likeIcon} ${c.likes}
+                </button>
+            </div>
+        `;
+    });
+    list.innerHTML = html;
+}
