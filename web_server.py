@@ -678,7 +678,8 @@ async def api_auth_google(request):
             return web.json_response({"error": "No credential provided"}, status=400)
             
         try:
-            idinfo = id_token.verify_oauth2_token(credential, requests.Request(), "YOUR_GOOGLE_CLIENT_ID", clock_skew_in_seconds=10)
+            from config import GOOGLE_CLIENT_ID
+            idinfo = id_token.verify_oauth2_token(credential, requests.Request(), GOOGLE_CLIENT_ID, clock_skew_in_seconds=10)
         except ValueError as e:
             import jwt
             idinfo = jwt.decode(credential, options={"verify_signature": False})
@@ -780,7 +781,17 @@ async def start_web_server(port: int = 8080):
     app.router.add_static('/photos', photos_dir, name='photos')
     
     async def index_handler(request):
-        return web.FileResponse(os.path.join(webapp_dir, 'index.html'))
+        # Read the file and inject Google Client ID if present
+        try:
+            with open(os.path.join(webapp_dir, 'index.html'), 'r', encoding='utf-8') as f:
+                content = f.read()
+            from config import GOOGLE_CLIENT_ID
+            if GOOGLE_CLIENT_ID:
+                content = content.replace("YOUR_GOOGLE_CLIENT_ID", GOOGLE_CLIENT_ID)
+            return web.Response(text=content, content_type='text/html')
+        except Exception as e:
+            logger.error(f"Error serving index.html: {e}")
+            return web.FileResponse(os.path.join(webapp_dir, 'index.html'))
     
     app.router.add_get('/', index_handler)
     app.router.add_static('/', webapp_dir, name='static', show_index=False)
