@@ -972,7 +972,7 @@ function renderLeaderboardWeight() {
         else badge = `${index + 1}.`;
         
         html += `
-            <div class="weather-item" style="display:flex; justify-content:space-between; align-items:center; color: #0f172a !important; padding: 12px; margin-bottom: 5px;">
+            <div class="weather-item" onclick="window.openChatWith('${u.username}')" style="display:flex; justify-content:space-between; align-items:center; color: #0f172a !important; padding: 12px; margin-bottom: 5px; cursor: pointer;">
                 <div style="display:flex; align-items:center; gap: 10px;">
                     <div style="font-size: 20px; width: 25px; text-align:center; font-weight:bold;">${badge}</div>
                     <div>
@@ -1010,7 +1010,7 @@ function renderLeaderboardPhoto() {
         const likeIcon = c.is_liked ? '❤️' : '🤍';
         
         html += `
-            <div class="weather-item" style="display:flex; align-items:center; gap: 15px; color: #0f172a !important; padding: 10px; margin-bottom: 5px;">
+            <div class="weather-item" onclick="window.showLeaderboardPhoto(${index})" style="display:flex; align-items:center; gap: 15px; color: #0f172a !important; padding: 10px; margin-bottom: 5px; cursor: pointer;">
                 <div style="font-size: 20px; font-weight:bold; width: 20px; text-align:center;">${badge}</div>
                 <img src="${photoUrl}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px;" alt="Photo">
                 <div style="flex-grow: 1;">
@@ -1025,3 +1025,28 @@ function renderLeaderboardPhoto() {
     });
     list.innerHTML = html;
 }
+
+window.showLeaderboardPhoto = (index) => {
+    const c = window.leaderboardData.top_photos[index];
+    if (!c) return;
+    
+    document.getElementById('modal-species').innerText = c.species;
+    document.getElementById('modal-weight').innerText = c.weight;
+    document.getElementById('modal-bait').innerText = 'Не вказано (Топ)';
+    document.getElementById('modal-location').innerText = c.location || 'Не вказано';
+    
+    const dateStr = c.date ? new Date(c.date).toLocaleDateString('uk-UA') : 'Невідомо';
+    document.getElementById('modal-date').innerText = dateStr;
+    
+    const photoContainer = document.getElementById('modal-photo-container');
+    if (c.photo_url) {
+        const photoUrl = `${API_URL}${c.photo_url}`;
+        photoContainer.innerHTML = `<img src="${photoUrl}" style="max-width: 100%; max-height: 50vh; border-radius: 10px; object-fit: contain;">`;
+    } else {
+        photoContainer.innerHTML = `<div style="padding: 20px; background: #f1f5f9; border-radius: 10px; color: #64748b;">Фото відсутнє</div>`;
+    }
+    
+    document.getElementById('modal-actions').style.display = 'none'; // hide edit/delete buttons
+    document.getElementById('catch-modal').style.display = 'flex';
+};
+
