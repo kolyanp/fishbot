@@ -1197,11 +1197,18 @@ window.addEventListener('load', () => {
     if (!appState.tgUser) {
         const script = document.createElement('script');
         script.async = true;
+        script.src = "https://telegram.org/js/telegram-widget.js?22";
+        
+        // ВАЖЛИВО! Вставте сюди юзернейм ВАШОГО бота (без @)
+        script.setAttribute('data-telegram-login', 'ParafiivkaFish_bot'); 
+        
         script.setAttribute('data-size', 'large');
         script.setAttribute('data-onauth', 'onTelegramWidgetAuth(user)');
         script.setAttribute('data-request-access', 'write');
         
+        const container = document.getElementById('telegram-login-container');
         if (container) {
+            container.appendChild(script);
         }
     }
 });

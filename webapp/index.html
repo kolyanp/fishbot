@@ -300,6 +300,15 @@
                          data-size="large"
                          data-logo_alignment="left">
                     </div>
+                    
+                    <!-- Telegram Login -->
+                    <div id="telegram-login-container">
+                        <script async src="https://telegram.org/js/telegram-widget.js?22"
+                                data-telegram-login="INSERT_YOUR_BOT_USERNAME_HERE"
+                                data-size="large"
+                                data-auth-url="https://api.parafiivka.com.ua/api/tg_auth"
+                                data-request-access="write"></script>
+                    </div>
                 </div>
                 
                 <p style="font-size: 11px; color: #94a3b8; margin-top: 20px; line-height: 1.4;">
@@ -348,7 +357,7 @@
         </a>
     </nav>
 
-    <script src="app.js?v=5"></script>
+    <script src="app.js?v=6"></script>
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
