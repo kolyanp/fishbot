@@ -196,6 +196,7 @@ input:focus, select:focus {
     align-items: center;
     width: 30%;
     box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+    color: #0f172a !important;
 }
 .w-icon { font-size: 24px; margin-bottom: 5px; }
 .w-val { font-size: 14px; font-weight: 700; color: #0369a1; }

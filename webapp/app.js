@@ -76,7 +76,7 @@ document.querySelector('[data-target="tab-history"]').addEventListener('click', 
             
             const itemDiv = document.createElement('div');
             itemDiv.className = 'weather-item';
-            itemDiv.style.cssText = 'width:100%; margin-bottom:10px; display:flex; flex-direction:row; align-items:center; cursor:pointer;';
+            itemDiv.style.cssText = 'width:100%; margin-bottom:10px; display:flex; flex-direction:row; align-items:center; cursor:pointer; color: #0f172a !important;';
             itemDiv.innerHTML = `
                 ${photoHtml}
                 <div style="flex-grow: 1;">
