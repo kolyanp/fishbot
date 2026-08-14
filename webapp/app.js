@@ -456,26 +456,32 @@ async function fetchForecast(lat, lon) {
         const prBar = document.getElementById('bar-predator');
         const prScore = document.getElementById('score-predator');
         
-        pScore.innerText = `${todayScores.peaceful}/10`;
-        pBar.style.width = `${todayScores.peaceful * 10}%`;
-        pBar.style.background = todayScores.peaceful >= 7 ? '#059669' : (todayScores.peaceful >= 4 ? '#d97706' : '#dc2626');
-        
-        prScore.innerText = `${todayScores.predator}/10`;
-        prBar.style.width = `${todayScores.predator * 10}%`;
-        prBar.style.background = todayScores.predator >= 7 ? '#059669' : (todayScores.predator >= 4 ? '#d97706' : '#dc2626');
-        
-        // Update Chart (Yesterday, Today, Tomorrow)
-        for(let i=0; i<3; i++) {
-            let bar = document.getElementById(`chart-bar-${i}`);
-            let val = document.getElementById(`chart-val-${i}`);
-            let score = scores[i].total;
+        if (pScore) {
+            pScore.innerText = `${todayScores.peaceful}/10`;
+            pBar.style.width = `${todayScores.peaceful * 10}%`;
+            pBar.style.background = todayScores.peaceful >= 7 ? '#059669' : (todayScores.peaceful >= 4 ? '#d97706' : '#dc2626');
             
-            val.innerText = score;
-            // timeout for animation effect
-            setTimeout(() => {
-                bar.style.height = `${score * 10}%`;
-                bar.style.background = score >= 7 ? '#0ea5e9' : (score >= 4 ? '#38bdf8' : '#94a3b8');
-            }, 100);
+            prScore.innerText = `${todayScores.predator}/10`;
+            prBar.style.width = `${todayScores.predator * 10}%`;
+            prBar.style.background = todayScores.predator >= 7 ? '#059669' : (todayScores.predator >= 4 ? '#d97706' : '#dc2626');
+            
+            // Update Chart (Yesterday, Today, Tomorrow)
+            for(let i=0; i<3; i++) {
+                let bar = document.getElementById(`chart-bar-${i}`);
+                let val = document.getElementById(`chart-val-${i}`);
+                let score = scores[i].total;
+                
+                val.innerText = score;
+                // timeout for animation effect
+                setTimeout(() => {
+                    bar.style.height = `${score * 10}%`;
+                    bar.style.background = score >= 7 ? '#0ea5e9' : (score >= 4 ? '#38bdf8' : '#94a3b8');
+                }, 100);
+            }
+        } else {
+            // Fallback for old UI
+            const oldScore = document.getElementById('res-score');
+            if (oldScore) oldScore.innerText = todayScores.total;
         }
         
         loading.style.display = 'none';

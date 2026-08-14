@@ -1,8 +1,8 @@
-const CACHE_NAME = 'fishapp-cache-v15';
+const CACHE_NAME = 'fishapp-cache-v16';
 const urlsToCache = [
-  './index.html',
-  './style.css',
-  './app.js'
+  './index.html?v=16',
+  './style.css?v=16',
+  './app.js?v=16'
 ];
 
 self.addEventListener('install', event => {
@@ -32,10 +32,10 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   event.respondWith(
-    caches.match(event.request)
+    caches.match(event.request, { ignoreSearch: true })
       .then(response => {
         if (response) {
-          return response; // Cache hit
+          return response;
         }
         return fetch(event.request);
       }
