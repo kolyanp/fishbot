@@ -49,7 +49,7 @@ async def api_history(request):
             "species": c.fish_species,
             "weight": c.weight,
             "bait": c.bait,
-            "date": c.date.isoformat() if c.date else None
+            "date": c.created_at.isoformat() if c.created_at else None
         } for c in catches]
         
     return web.json_response(data)
