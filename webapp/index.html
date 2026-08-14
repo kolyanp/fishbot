@@ -41,16 +41,18 @@
                 <form id="catch-form">
                     <div class="form-group">
                         <label for="species">Вид риби</label>
-                        <select id="species" name="species" required>
-                            <option value="" disabled selected>Оберіть рибу...</option>
-                            <option value="Щука">Щука</option>
-                            <option value="Короп">Короп</option>
-                            <option value="Карась">Карась</option>
-                            <option value="Окунь">Окунь</option>
-                            <option value="Судак">Судак</option>
-                            <option value="Лящ">Лящ</option>
-                            <option value="Інша">Інша...</option>
-                        </select>
+                        <input type="text" id="species" name="species" list="species-options" required placeholder="Оберіть або введіть свою...">
+                        <datalist id="species-options">
+                            <option value="Карась">
+                            <option value="Короп">
+                            <option value="Товстолоб">
+                            <option value="Щука">
+                            <option value="Окунь">
+                            <option value="Судак">
+                            <option value="Лящ">
+                            <option value="Плітка">
+                            <option value="Сом">
+                        </datalist>
                     </div>
 
                     <div class="form-group">
