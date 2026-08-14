@@ -7,6 +7,21 @@ tg.ready();
 document.documentElement.style.setProperty('--text-color', tg.themeParams.text_color || '#0f172a');
 // Background is our beautiful gradient, so we ignore Telegram's bg_color
 
+function checkBan(data) {
+    if (data && data.is_banned) {
+        document.body.innerHTML = `
+            <div style="display:flex; flex-direction:column; justify-content:center; align-items:center; height:100vh; background:white; color:black; font-family:'Inter', sans-serif; text-align:center; padding:20px;">
+                <h1 style="color:#ef4444; font-size:64px; margin-bottom:10px;">🛑</h1>
+                <h2>Ви забанені</h2>
+                <p>Для розбану - зв'яжіться з адміном чи модером.</p>
+                ${data.ban_reason ? `<p style="margin-top:20px; font-weight:bold; color:#ef4444;">Причина: ${data.ban_reason}</p>` : ''}
+            </div>
+        `;
+        return true;
+    }
+    return false;
+}
+
 // Tab Navigation Logic
 const navItems = document.querySelectorAll('.nav-item');
 const tabContents = document.querySelectorAll('.tab-content');
@@ -51,7 +66,12 @@ document.querySelector('[data-target="tab-history"]').addEventListener('click', 
     try {
         const queryStr = window.location.search; // Contains ?user_id=...&sig=...
         const res = await fetch(`${API_URL}/api/history${queryStr}`);
+        const res = await fetch(`${API_URL}/api/history${queryStr}`);
         if (!res.ok) throw new Error("API error");
+        const data = await res.json();
+        
+        if (checkBan(data)) return;
+        
         let isAdmin = false;
         let myId = tg.initDataUnsafe?.user?.id?.toString();
         let catchesData = [];
@@ -415,6 +435,8 @@ async function initGlobalMap() {
         const res = await fetch(`${API_URL}/api/global_map${queryStr}`);
         const data = await res.json();
         
+        if (checkBan(data)) return;
+        
         let mapCatches = [];
         let isAdmin = false;
         let myId = tg.initDataUnsafe?.user?.id?.toString();
@@ -508,19 +530,33 @@ let chatInterval = null;
 async function loadChat() {
     const queryStr = window.location.search;
     try {
-    try {
         const res = await fetch(`${API_URL}/api/chat${queryStr}`);
         const data = await res.json();
         
-        // Handle backend returning object {is_admin, messages, current_user_id}
+        if (checkBan(data)) return;
+        
         let messages = [];
         let isAdmin = false;
-        let myId = tg.initDataUnsafe?.user?.id?.toString();
+        let myId = null;
         
         if (data && data.messages) {
             messages = data.messages;
             isAdmin = data.is_admin;
-            myId = data.current_user_id.toString();
+            myId = data.current_user_id?.toString();
+            
+            // Check mute
+            const chatInput = document.getElementById('chat-input');
+            const chatSendBtn = document.getElementById('chat-send-btn');
+            if (data.muted_until && new Date(data.muted_until) > new Date()) {
+                chatInput.disabled = true;
+                chatSendBtn.disabled = true;
+                const muteDate = new Date(data.muted_until).toLocaleString('uk-UA');
+                chatInput.placeholder = "🔇 Мут до " + muteDate;
+            } else {
+                chatInput.disabled = false;
+                chatSendBtn.disabled = false;
+                chatInput.placeholder = "Напишіть повідомлення...";
+            }
         } else {
             messages = data;
         }
@@ -561,15 +597,17 @@ async function loadChat() {
             
             const timeDate = new Date(m.date);
             const timeStr = `${timeDate.getHours().toString().padStart(2, '0')}:${timeDate.getMinutes().toString().padStart(2, '0')}`;
-            const timeHtml = `<div style="font-size: 10px; opacity: 0.7; text-align: right; margin-top: 3px;">${timeStr}</div>`;
             
-            // Actions (Edit/Delete)
+            // Actions (Edit/Delete/Mod)
             let actionsHtml = `<div style="display:inline-flex; gap: 5px; margin-right: 8px;">`;
             if (isMe || isAdmin) {
-                actionsHtml += `<span onclick="editChatMessage(${m.id}, \`${m.text.replace(/`/g, '\\`')}\`)" style="cursor:pointer; font-size:12px; opacity:0.8;">✏️</span>`;
+                actionsHtml += `<span onclick="window.editChatMessage(${m.id}, \`${m.text.replace(/`/g, '\\`')}\`)" style="cursor:pointer; font-size:12px; opacity:0.8;">✏️</span>`;
+            }
+            if (isAdmin && !isMe) {
+                actionsHtml += `<span onclick="window.openModModal(${m.user_id}, '${m.username}')" style="cursor:pointer; font-size:12px; opacity:0.8;">🛡</span>`;
             }
             if (isAdmin) {
-                actionsHtml += `<span onclick="deleteChatMessage(${m.id})" style="cursor:pointer; font-size:12px; opacity:0.8; color:#ef4444;">🗑</span>`;
+                actionsHtml += `<span onclick="window.deleteChatMessage(${m.id})" style="cursor:pointer; font-size:12px; opacity:0.8; color:#ef4444;">🗑</span>`;
             }
             actionsHtml += `</div>`;
             
@@ -689,11 +727,61 @@ async function sendChatMessage() {
                 body: JSON.stringify({ user_id, sig, text })
             });
         }
+        if (!res.ok) {
+            const err = await res.json();
+            alert(err.error || "Помилка відправки");
+            if (err.reason) {
+                alert(`Причина: ${err.reason}`);
+            }
+            if (err.error === "У вас мут чату.") {
+                loadChat();
+            }
+            return;
+        }
+        
         loadChat();
     } catch (e) {
         alert("Помилка відправки");
     }
 }
+
+// Moderation
+window.openModModal = function(userId, username) {
+    document.getElementById('mod-target-name').innerText = username;
+    document.getElementById('mod-target-id').value = userId;
+    document.getElementById('mod-reason').value = '';
+    document.getElementById('mod-modal').style.display = 'flex';
+};
+
+window.moderateUser = async function(action) {
+    const target_id = document.getElementById('mod-target-id').value;
+    const reason = document.getElementById('mod-reason').value.trim();
+    
+    if (!target_id) return;
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    const user_id = urlParams.get('user_id');
+    const sig = urlParams.get('sig');
+    
+    try {
+        const res = await fetch(`${API_URL}/api/moderate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id, sig, target_id: parseInt(target_id), action, reason })
+        });
+        
+        if (res.ok) {
+            document.getElementById('mod-modal').style.display = 'none';
+            tg.showAlert("Дію виконано!");
+            loadChat();
+        } else {
+            const err = await res.json();
+            alert("Помилка: " + (err.error || "Невідомо"));
+        }
+    } catch (e) {
+        alert("Помилка з'єднання");
+    }
+};
 
 // Catch Edit / Delete API
 window.editCatch = function(catchItem) {

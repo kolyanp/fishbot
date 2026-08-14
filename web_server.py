@@ -8,6 +8,7 @@ import hashlib
 from urllib.parse import parse_qsl
 from sqlalchemy.future import select
 from config import BOT_TOKEN, ADMIN_ID
+from datetime import datetime
 from database.engine import async_session
 from database.models import User, CatchLog, ChatMessage
 
@@ -23,6 +24,16 @@ def validate_secure_url(user_id: str, sig: str) -> bool:
         logger.error(f"Validation error: {e}")
         return False
 
+async def get_user_and_check_auth(tg_id: int, session):
+    result = await session.execute(select(User).filter_by(telegram_id=tg_id))
+    user = result.scalar_one_or_none()
+    
+    if not user:
+        return None, False, False, None, None, None
+        
+    is_admin = (tg_id == ADMIN_ID) or user.is_moderator
+    return user, is_admin, user.is_banned, user.ban_reason, user.muted_until, user.mute_reason
+
 async def api_history(request):
     user_id = request.query.get('user_id', '')
     sig = request.query.get('sig', '')
@@ -33,8 +44,7 @@ async def api_history(request):
     tg_id = int(user_id)
     
     async with async_session() as session:
-        result = await session.execute(select(User).filter_by(telegram_id=tg_id))
-        user = result.scalar_one_or_none()
+        user, is_admin, is_banned, ban_reason, muted_until, mute_reason = await get_user_and_check_auth(tg_id, session)
         
         if not user:
             return web.json_response([])
@@ -57,7 +67,9 @@ async def api_history(request):
         } for c in catches]
         
     return web.json_response({
-        "is_admin": tg_id == ADMIN_ID,
+        "is_admin": is_admin if user else False,
+        "is_banned": is_banned if user else False,
+        "ban_reason": ban_reason if user else None,
         "catches": data
     })
 
@@ -68,7 +80,11 @@ async def api_global_map(request):
     if not validate_secure_url(user_id, sig):
         return web.json_response({"error": "Unauthorized"}, status=401)
         
+    tg_id = int(user_id) if user_id.isdigit() else 0
+        
     async with async_session() as session:
+        user, is_admin, is_banned, ban_reason, muted_until, mute_reason = await get_user_and_check_auth(tg_id, session)
+        
         from sqlalchemy.orm import selectinload
         result = await session.execute(
             select(CatchLog)
@@ -93,7 +109,8 @@ async def api_global_map(request):
         } for c in catches]
         
     return web.json_response({
-        "is_admin": int(user_id) == ADMIN_ID if user_id.isdigit() else False,
+        "is_admin": is_admin if user else False,
+        "is_banned": is_banned if user else False,
         "catches": data
     })
 
@@ -151,7 +168,6 @@ async def api_catch(request):
         return web.json_response({"error": "Unauthorized"}, status=401)
         
     tg_id = int(user_id_str)
-    is_admin = (tg_id == ADMIN_ID)
     username = f"user_{tg_id}" # Fallback since we don't get username in URL
     
     # Save photo (For simplicity, we save it locally for now)
@@ -163,13 +179,19 @@ async def api_catch(request):
             f.write(photo_data)
             
     async with async_session() as session:
-        result = await session.execute(select(User).filter_by(telegram_id=tg_id))
-        user = result.scalar_one_or_none()
+        user, is_admin, is_banned, ban_reason, muted_until, mute_reason = await get_user_and_check_auth(tg_id, session)
+        
         if not user:
             user = User(telegram_id=tg_id, username=username)
             session.add(user)
             await session.commit()
             await session.refresh(user)
+            is_admin = (tg_id == ADMIN_ID)
+            is_banned = False
+            ban_reason = None
+            
+        if is_banned:
+            return web.json_response({"error": "Ви забанені. Додавання уловів заборонено.", "reason": ban_reason}, status=403)
             
         if catch_id:
             # Edit existing catch
@@ -230,9 +252,13 @@ async def api_catch_delete(request):
         return web.json_response({"error": "Unauthorized"}, status=401)
         
     tg_id = int(user_id)
-    is_admin = (tg_id == ADMIN_ID)
     
     async with async_session() as session:
+        user, is_admin, is_banned = await get_user_and_check_auth(tg_id, session)
+        
+        if is_banned:
+            return web.json_response({"error": "Ви забанені."}, status=403)
+            
         result = await session.execute(select(CatchLog).filter_by(id=catch_id))
         catch = result.scalar_one_or_none()
         
@@ -264,7 +290,11 @@ async def api_chat_get(request):
     if not validate_secure_url(user_id, sig):
         return web.json_response({"error": "Unauthorized"}, status=401)
         
+    tg_id = int(user_id) if user_id.isdigit() else 0
+        
     async with async_session() as session:
+        user, is_admin, is_banned = await get_user_and_check_auth(tg_id, session)
+        
         from sqlalchemy.orm import selectinload
         # Fetch last 50 messages, ordered by oldest to newest for chat UI
         result = await session.execute(
@@ -285,8 +315,12 @@ async def api_chat_get(request):
         } for m in messages]
         
     return web.json_response({
-        "is_admin": int(user_id) == ADMIN_ID if user_id.isdigit() else False,
-        "current_user_id": int(user_id) if user_id.isdigit() else 0,
+        "is_admin": is_admin if user else False,
+        "is_banned": is_banned if user else False,
+        "ban_reason": ban_reason if user else None,
+        "muted_until": muted_until.isoformat() if muted_until else None,
+        "mute_reason": mute_reason if user else None,
+        "current_user_id": tg_id,
         "messages": data
     })
 
@@ -312,11 +346,16 @@ async def api_chat_post(request):
     tg_id = int(user_id)
     
     async with async_session() as session:
-        result = await session.execute(select(User).filter_by(telegram_id=tg_id))
-        user = result.scalar_one_or_none()
+        user, is_admin, is_banned, ban_reason, muted_until, mute_reason = await get_user_and_check_auth(tg_id, session)
         
         if not user:
             return web.json_response({"error": "User not found"}, status=404)
+            
+        if is_banned:
+            return web.json_response({"error": "Ви забанені. Писати заборонено.", "reason": ban_reason}, status=403)
+            
+        if muted_until and muted_until > datetime.utcnow():
+            return web.json_response({"error": "У вас мут чату.", "reason": mute_reason}, status=403)
             
         new_msg = ChatMessage(user_id=user.id, text=text)
         session.add(new_msg)
@@ -338,9 +377,13 @@ async def api_chat_delete(request):
         return web.json_response({"error": "Unauthorized"}, status=401)
         
     tg_id = int(user_id)
-    is_admin = (tg_id == ADMIN_ID)
     
     async with async_session() as session:
+        user, is_admin, is_banned = await get_user_and_check_auth(tg_id, session)
+        
+        if is_banned:
+            return web.json_response({"error": "Ви забанені."}, status=403)
+            
         result = await session.execute(select(ChatMessage).filter_by(id=msg_id))
         msg = result.scalar_one_or_none()
         
@@ -376,9 +419,16 @@ async def api_chat_put(request):
         return web.json_response({"error": "Empty message"}, status=400)
         
     tg_id = int(user_id)
-    is_admin = (tg_id == ADMIN_ID)
     
     async with async_session() as session:
+        user, is_admin, is_banned, ban_reason, muted_until, mute_reason = await get_user_and_check_auth(tg_id, session)
+        
+        if is_banned:
+            return web.json_response({"error": "Ви забанені."}, status=403)
+            
+        if muted_until and muted_until > datetime.utcnow():
+            return web.json_response({"error": "У вас мут чату."}, status=403)
+            
         result = await session.execute(select(ChatMessage).filter_by(id=msg_id))
         msg = result.scalar_one_or_none()
         
@@ -395,6 +445,59 @@ async def api_chat_put(request):
         await session.commit()
         
     return web.json_response({"success": True})
+
+async def api_moderate(request):
+    try:
+        data = await request.json()
+    except:
+        return web.json_response({"error": "Invalid JSON"}, status=400)
+        
+    user_id = data.get('user_id', '')
+    sig = data.get('sig', '')
+    target_id = data.get('target_id') # User to moderate (database ID, not telegram ID!)
+    action = data.get('action')
+    reason = data.get('reason', '')
+    
+    if not validate_secure_url(user_id, sig):
+        return web.json_response({"error": "Unauthorized"}, status=401)
+        
+    tg_id = int(user_id)
+    
+    async with async_session() as session:
+        user, is_admin, _, _, _, _ = await get_user_and_check_auth(tg_id, session)
+        
+        if not is_admin:
+            return web.json_response({"error": "Forbidden"}, status=403)
+            
+        result = await session.execute(select(User).filter_by(id=target_id))
+        target = result.scalar_one_or_none()
+        
+        if not target:
+            return web.json_response({"error": "Target user not found"}, status=404)
+            
+        if action == 'ban':
+            target.is_banned = True
+            target.ban_reason = reason
+        elif action == 'mute_1h':
+            from datetime import timedelta
+            target.muted_until = datetime.utcnow() + timedelta(hours=1)
+            target.mute_reason = reason
+        elif action == 'mute_24h':
+            from datetime import timedelta
+            target.muted_until = datetime.utcnow() + timedelta(hours=24)
+            target.mute_reason = reason
+        elif action == 'unban':
+            target.is_banned = False
+            target.ban_reason = None
+            target.muted_until = None
+            target.mute_reason = None
+        else:
+            return web.json_response({"error": "Invalid action"}, status=400)
+            
+        await session.commit()
+        
+    return web.json_response({"success": True})
+
 async def start_web_server(port: int = 8080):
     # Set max upload size to 20MB for photos
     app = web.Application(client_max_size=1024 * 1024 * 20)
@@ -417,6 +520,7 @@ async def start_web_server(port: int = 8080):
     cors.add(app.router.add_post('/api/chat', api_chat_post))
     cors.add(app.router.add_put('/api/chat', api_chat_put))
     cors.add(app.router.add_delete('/api/chat', api_chat_delete))
+    cors.add(app.router.add_post('/api/moderate', api_moderate))
     
     # Path to directories
     current_dir = os.path.dirname(os.path.abspath(__file__))

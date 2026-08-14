@@ -15,6 +15,15 @@ router = Router()
 def is_admin(user_id: int) -> bool:
     return ADMIN_ID != 0 and user_id == ADMIN_ID
 
+async def check_is_admin_or_mod(user_id: int, session) -> bool:
+    if is_admin(user_id):
+        return True
+    result = await session.execute(select(User).filter_by(telegram_id=user_id))
+    user = result.scalar_one_or_none()
+    if user and user.is_moderator:
+        return True
+    return False
+
 @router.message(Command("admin"))
 @router.message(F.text == "👑 Адмінка")
 async def cmd_admin(message: Message):
@@ -229,4 +238,161 @@ async def cq_admin_chat_log(callback: CallbackQuery):
     text_content = "\n".join(lines).encode('utf-8')
     document = BufferedInputFile(text_content, filename="chat_log.txt")
     
-    await callback.message.answer_document(document, caption="💬 Ось лог останніх повідомлень чату.")
+    await callback.message.answer_document(document, caption="💬 Ось лог останніх повідомлень чату.\n\n🛠 **Команди модерації:**\n`/ban <ID> [причина]` - Забанити\n`/mute <ID> <години> [причина]` - Замутити\n`/unban <ID>` - Розбанити/Зняти мут", parse_mode="Markdown")
+
+
+# --- Модерація ---
+@router.message(Command("ban"))
+async def cmd_ban(message: Message):
+    args = message.text.split(maxsplit=2)
+    if len(args) < 2:
+        await message.answer("Використання: `/ban <ID> [причина]`", parse_mode="Markdown")
+        return
+        
+    target_id = args[1]
+    reason = args[2] if len(args) > 2 else "Не вказано"
+    
+    if not target_id.isdigit():
+        await message.answer("ID має бути числом.")
+        return
+        
+    async with async_session() as session:
+        if not await check_is_admin_or_mod(message.from_user.id, session):
+            return
+            
+        result = await session.execute(select(User).filter_by(telegram_id=int(target_id)))
+        target = result.scalar_one_or_none()
+        
+        if not target:
+            await message.answer("Користувача не знайдено.")
+            return
+            
+        target.is_banned = True
+        target.ban_reason = reason
+        await session.commit()
+        
+    await message.answer(f"✅ Користувача {target_id} забанено.\nПричина: {reason}")
+
+@router.message(Command("unban"))
+@router.message(Command("unmute"))
+async def cmd_unban(message: Message):
+    args = message.text.split(maxsplit=1)
+    if len(args) < 2:
+        await message.answer("Використання: `/unban <ID>`", parse_mode="Markdown")
+        return
+        
+    target_id = args[1]
+    
+    if not target_id.isdigit():
+        await message.answer("ID має бути числом.")
+        return
+        
+    async with async_session() as session:
+        if not await check_is_admin_or_mod(message.from_user.id, session):
+            return
+            
+        result = await session.execute(select(User).filter_by(telegram_id=int(target_id)))
+        target = result.scalar_one_or_none()
+        
+        if not target:
+            await message.answer("Користувача не знайдено.")
+            return
+            
+        target.is_banned = False
+        target.ban_reason = None
+        target.muted_until = None
+        target.mute_reason = None
+        await session.commit()
+        
+    await message.answer(f"✅ Всі обмеження з користувача {target_id} знято.")
+
+@router.message(Command("mute"))
+async def cmd_mute(message: Message):
+    args = message.text.split(maxsplit=3)
+    if len(args) < 3:
+        await message.answer("Використання: `/mute <ID> <години> [причина]`", parse_mode="Markdown")
+        return
+        
+    target_id = args[1]
+    hours = args[2]
+    reason = args[3] if len(args) > 3 else "Не вказано"
+    
+    if not target_id.isdigit() or not hours.isdigit():
+        await message.answer("ID та години мають бути числами.")
+        return
+        
+    async with async_session() as session:
+        if not await check_is_admin_or_mod(message.from_user.id, session):
+            return
+            
+        result = await session.execute(select(User).filter_by(telegram_id=int(target_id)))
+        target = result.scalar_one_or_none()
+        
+        if not target:
+            await message.answer("Користувача не знайдено.")
+            return
+            
+        from datetime import datetime, timedelta
+        target.muted_until = datetime.utcnow() + timedelta(hours=int(hours))
+        target.mute_reason = reason
+        await session.commit()
+        
+    await message.answer(f"✅ Користувача {target_id} замучено на {hours} годин.\nПричина: {reason}")
+
+@router.message(Command("setmod"))
+async def cmd_setmod(message: Message):
+    if not is_admin(message.from_user.id): # Тільки головний адмін може давати права
+        return
+        
+    args = message.text.split(maxsplit=1)
+    if len(args) < 2:
+        await message.answer("Використання: `/setmod <ID>`", parse_mode="Markdown")
+        return
+        
+    target_id = args[1]
+    
+    if not target_id.isdigit():
+        await message.answer("ID має бути числом.")
+        return
+        
+    async with async_session() as session:
+        result = await session.execute(select(User).filter_by(telegram_id=int(target_id)))
+        target = result.scalar_one_or_none()
+        
+        if not target:
+            await message.answer("Користувача не знайдено.")
+            return
+            
+        target.is_moderator = True
+        await session.commit()
+        
+    await message.answer(f"✅ Користувача {target_id} призначено модератором.")
+
+@router.message(Command("delmod"))
+async def cmd_delmod(message: Message):
+    if not is_admin(message.from_user.id):
+        return
+        
+    args = message.text.split(maxsplit=1)
+    if len(args) < 2:
+        await message.answer("Використання: `/delmod <ID>`", parse_mode="Markdown")
+        return
+        
+    target_id = args[1]
+    
+    if not target_id.isdigit():
+        await message.answer("ID має бути числом.")
+        return
+        
+    async with async_session() as session:
+        result = await session.execute(select(User).filter_by(telegram_id=int(target_id)))
+        target = result.scalar_one_or_none()
+        
+        if not target:
+            await message.answer("Користувача не знайдено.")
+            return
+            
+        target.is_moderator = False
+        await session.commit()
+        
+    await message.answer(f"✅ Користувача {target_id} більше не модератор.")
