@@ -45,11 +45,15 @@ document.querySelector('[data-target="tab-history"]').addEventListener('click', 
     loading.style.display = 'block';
     list.innerHTML = '';
     
+    // We also store history data globally so the map tab can use it
+    window.historyData = [];
+    
     try {
         const queryStr = window.location.search; // Contains ?user_id=...&sig=...
         const res = await fetch(`${API_URL}/api/history${queryStr}`);
         if (!res.ok) throw new Error("API error");
         const data = await res.json();
+        window.historyData = data;
         
         loading.style.display = 'none';
         
@@ -121,7 +125,73 @@ document.querySelector('[data-target="tab-history"]').addEventListener('click', 
     }
 });
 
-// Form submission for Catch Log
+// --- MAP PICKER LOGIC ---
+let pickerMap = null;
+let pickerMarker = null;
+
+document.getElementById('open-picker-btn').addEventListener('click', () => {
+    document.getElementById('map-picker-modal').style.display = 'flex';
+    
+    if (!pickerMap) {
+        // Init map (center on Ukraine)
+        pickerMap = L.map('picker-map').setView([48.3794, 31.1656], 5);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap'
+        }).addTo(pickerMap);
+        
+        pickerMap.on('click', (e) => {
+            if (pickerMarker) {
+                pickerMarker.setLatLng(e.latlng);
+            } else {
+                pickerMarker = L.marker(e.latlng).addTo(pickerMap);
+            }
+        });
+    }
+    
+    // Fix leaflet render bug in modal
+    setTimeout(() => {
+        pickerMap.invalidateSize();
+    }, 100);
+});
+
+document.getElementById('close-picker-btn').addEventListener('click', () => {
+    document.getElementById('map-picker-modal').style.display = 'none';
+});
+
+document.getElementById('find-me-btn').addEventListener('click', () => {
+    if (!navigator.geolocation) {
+        alert("Ваш пристрій не підтримує геолокацію.");
+        return;
+    }
+    document.getElementById('find-me-btn').innerText = "⏳...";
+    navigator.geolocation.getCurrentPosition(
+        (pos) => {
+            const lat = pos.coords.latitude;
+            const lon = pos.coords.longitude;
+            pickerMap.setView([lat, lon], 13);
+            if (pickerMarker) pickerMarker.setLatLng([lat, lon]);
+            else pickerMarker = L.marker([lat, lon]).addTo(pickerMap);
+            document.getElementById('find-me-btn').innerText = "📍 Знайти мене";
+        },
+        (err) => {
+            alert("Не вдалося отримати локацію.");
+            document.getElementById('find-me-btn').innerText = "📍 Знайти мене";
+        }
+    );
+});
+
+document.getElementById('save-loc-btn').addEventListener('click', () => {
+    if (pickerMarker) {
+        const lat = pickerMarker.getLatLng().lat;
+        const lon = pickerMarker.getLatLng().lng;
+        document.getElementById('loc_lat').value = lat;
+        document.getElementById('loc_lon').value = lon;
+        document.getElementById('location').value = `📍 Обрано на карті`;
+    }
+    document.getElementById('map-picker-modal').style.display = 'none';
+});
+
+// --- SUBMIT CATCH LOGIC ---
 const form = document.getElementById('catch-form');
 form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -136,6 +206,8 @@ form.addEventListener('submit', async (e) => {
     formData.append('weight', document.getElementById('weight').value);
     formData.append('bait', document.getElementById('bait').value);
     formData.append('location', document.getElementById('location').value);
+    formData.append('lat', document.getElementById('loc_lat').value);
+    formData.append('lon', document.getElementById('loc_lon').value);
     
     const photoInput = document.getElementById('photo');
     if (photoInput.files.length > 0) {
@@ -294,5 +366,65 @@ searchBtn.addEventListener('click', async () => {
         alert('Помилка пошуку!');
         searchBtn.disabled = false;
         searchBtn.innerText = "🔍 Шукати";
+    }
+});
+
+// --- MAIN CATCHES MAP LOGIC ---
+let catchesMap = null;
+
+document.querySelector('[data-target="tab-map"]').addEventListener('click', async () => {
+    if (!catchesMap) {
+        catchesMap = L.map('catches-map').setView([48.3794, 31.1656], 5);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap'
+        }).addTo(catchesMap);
+    }
+    
+    setTimeout(() => { catchesMap.invalidateSize(); }, 200);
+    
+    // Clear old markers
+    catchesMap.eachLayer((layer) => {
+        if (layer instanceof L.Marker) {
+            catchesMap.removeLayer(layer);
+        }
+    });
+    
+    // Load data if empty
+    if (!window.historyData || window.historyData.length === 0) {
+        const queryStr = window.location.search;
+        try {
+            const res = await fetch(`${API_URL}/api/history${queryStr}`);
+            window.historyData = await res.json();
+        } catch (e) { console.error(e); }
+    }
+    
+    if (window.historyData && window.historyData.length > 0) {
+        let hasPins = false;
+        const bounds = L.latLngBounds();
+        
+        window.historyData.forEach(c => {
+            if (c.lat && c.lon) {
+                hasPins = true;
+                const photoUrl = c.photo_url ? `${API_URL}${c.photo_url}` : null;
+                const imgHtml = photoUrl ? `<img src="${photoUrl}" style="width:100%; height:100px; object-fit:cover; border-radius:5px; margin-bottom:5px;">` : '';
+                const date = new Date(c.date).toLocaleDateString('uk-UA');
+                
+                const popupContent = `
+                    <div style="text-align:center; min-width: 120px;">
+                        ${imgHtml}
+                        <h4 style="margin: 5px 0;">${c.species}</h4>
+                        <p style="margin: 0; font-size:12px;">Вага: ${c.weight} кг</p>
+                        <p style="margin: 0; font-size:12px;">${date}</p>
+                    </div>
+                `;
+                
+                L.marker([c.lat, c.lon]).addTo(catchesMap).bindPopup(popupContent);
+                bounds.extend([c.lat, c.lon]);
+            }
+        });
+        
+        if (hasPins) {
+            catchesMap.fitBounds(bounds, { padding: [20, 20], maxZoom: 14 });
+        }
     }
 });

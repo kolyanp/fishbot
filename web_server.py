@@ -50,6 +50,8 @@ async def api_history(request):
             "weight": c.weight,
             "bait": c.bait,
             "location": c.location,
+            "lat": c.lat,
+            "lon": c.lon,
             "date": c.created_at.isoformat() if c.created_at else None,
             "photo_url": f"/{c.photo_id}" if c.photo_id else None
         } for c in catches]
@@ -66,6 +68,8 @@ async def api_catch(request):
     weight = 0.0
     bait = ""
     location = ""
+    lat = None
+    lon = None
     photo_data = None
     
     while True:
@@ -91,6 +95,12 @@ async def api_catch(request):
         elif field.name == 'location':
             val = await field.read(decode=True)
             location = val.decode()
+        elif field.name == 'lat':
+            val = await field.read(decode=True)
+            if val: lat = float(val.decode())
+        elif field.name == 'lon':
+            val = await field.read(decode=True)
+            if val: lon = float(val.decode())
         elif field.name == 'photo' and field.filename:
             photo_data = await field.read()
 
@@ -123,6 +133,8 @@ async def api_catch(request):
             weight=weight,
             bait=bait,
             location=location,
+            lat=lat,
+            lon=lon,
             photo_id=photo_path
         )
         session.add(new_log)

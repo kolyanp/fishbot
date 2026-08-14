@@ -20,7 +20,14 @@ async def init_db():
             await conn.execute(text("ALTER TABLE catch_logs ADD COLUMN location VARCHAR(255)"))
             logger.info("Database migration: Added 'location' column to 'catch_logs'.")
         except Exception:
-            # Column already exists or table structure error, safe to ignore
+            pass
+            
+        try:
+            from sqlalchemy import text
+            await conn.execute(text("ALTER TABLE catch_logs ADD COLUMN lat FLOAT"))
+            await conn.execute(text("ALTER TABLE catch_logs ADD COLUMN lon FLOAT"))
+            logger.info("Database migration: Added 'lat' and 'lon' columns to 'catch_logs'.")
+        except Exception:
             pass
 
 async def get_session() -> AsyncSession:
