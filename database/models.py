@@ -9,8 +9,10 @@ class User(Base):
     __tablename__ = 'users'
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    telegram_id: Mapped[int] = mapped_column(BigInteger, unique=True, nullable=False)
+    telegram_id: Mapped[int] = mapped_column(BigInteger, unique=True, nullable=True)
+    google_id: Mapped[str] = mapped_column(String(255), unique=True, nullable=True)
     username: Mapped[str] = mapped_column(String(255), nullable=True)
+    auth_token: Mapped[str] = mapped_column(String(255), unique=True, nullable=True)
     
     # Moderation fields
     is_banned: Mapped[bool] = mapped_column(default=False)
@@ -18,6 +20,7 @@ class User(Base):
     muted_until: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     mute_reason: Mapped[str] = mapped_column(String(255), nullable=True)
     is_moderator: Mapped[bool] = mapped_column(default=False)
+    is_admin: Mapped[bool] = mapped_column(default=False)
     
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 

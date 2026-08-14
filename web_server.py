@@ -34,17 +34,49 @@ async def get_user_and_check_auth(tg_id: int, session):
     is_admin = (tg_id == ADMIN_ID) or user.is_moderator
     return user, is_admin, user.is_banned, user.ban_reason, user.muted_until, user.mute_reason
 
+import uuid
+from google.oauth2 import id_token
+from google.auth.transport import requests
+
+async def get_user_from_auth(request, session, data=None):
+    if data is None:
+        data = request.query
+    
+    token = data.get('token')
+    guest = data.get('guest')
+    user_id = data.get('user_id')
+    sig = data.get('sig')
+    
+    if token:
+        result = await session.execute(select(User).filter_by(auth_token=token))
+        user = result.scalar_one_or_none()
+        if user:
+            is_admin = user.is_admin or user.is_moderator or (user.telegram_id == ADMIN_ID)
+            return user, is_admin, user.is_banned, user.ban_reason, user.muted_until, user.mute_reason, False
+    elif guest:
+        # Return a dummy user for guest
+        class GuestUser:
+            id = 0
+            username = f"Гість: {guest}"
+            telegram_id = 0
+        return GuestUser(), False, False, None, None, None, True
+    elif user_id and sig:
+        if validate_secure_url(user_id, sig):
+            tg_id = int(user_id) if str(user_id).isdigit() else 0
+            user, is_admin, is_banned, ban_reason, muted_until, mute_reason = await get_user_and_check_auth(tg_id, session)
+            return user, is_admin, is_banned, ban_reason, muted_until, mute_reason, False
+            
+    return None, False, False, None, None, None, False
+
+
 async def api_history(request):
     user_id = request.query.get('user_id', '')
     sig = request.query.get('sig', '')
     
-    if not validate_secure_url(user_id, sig):
-        return web.json_response({"error": "Unauthorized"}, status=401)
-        
-    tg_id = int(user_id)
-    
     async with async_session() as session:
-        user, is_admin, is_banned, ban_reason, muted_until, mute_reason = await get_user_and_check_auth(tg_id, session)
+        user, is_admin, is_banned, ban_reason, muted_until, mute_reason, is_guest = await get_user_from_auth(request, session)
+        if not user:
+            return web.json_response({"error": "Unauthorized"}, status=401)
         
         if not user:
             return web.json_response([])
@@ -83,13 +115,10 @@ async def api_global_map(request):
     user_id = request.query.get('user_id', '')
     sig = request.query.get('sig', '')
     
-    if not validate_secure_url(user_id, sig):
-        return web.json_response({"error": "Unauthorized"}, status=401)
-        
-    tg_id = int(user_id) if user_id.isdigit() else 0
-        
     async with async_session() as session:
-        user, is_admin, is_banned, ban_reason, muted_until, mute_reason = await get_user_and_check_auth(tg_id, session)
+        user, is_admin, is_banned, ban_reason, muted_until, mute_reason, is_guest = await get_user_from_auth(request, session)
+        if not user:
+            return web.json_response({"error": "Unauthorized"}, status=401)
         
         from sqlalchemy.orm import selectinload
         result = await session.execute(
@@ -129,6 +158,7 @@ async def api_catch(request):
     
     user_id_str = ""
     sig = ""
+    token = ""
     species = ""
     weight = 0.0
     bait = ""
@@ -149,6 +179,9 @@ async def api_catch(request):
         elif field.name == 'sig':
             val = await field.read(decode=True)
             sig = val.decode()
+        elif field.name == 'token':
+            val = await field.read(decode=True)
+            token = val.decode()
         elif field.name == 'species':
             val = await field.read(decode=True)
             species = val.decode()
@@ -173,22 +206,25 @@ async def api_catch(request):
             val = await field.read(decode=True)
             if val: catch_id = int(val.decode())
 
-    if not validate_secure_url(user_id_str, sig):
-        return web.json_response({"error": "Unauthorized"}, status=401)
-        
-    tg_id = int(user_id_str)
-    username = f"user_{tg_id}" # Fallback since we don't get username in URL
-    
-    # Save photo (For simplicity, we save it locally for now)
+        # Save photo (For simplicity, we save it locally for now)
     photo_path = None
     if photo_data:
+        import uuid
         os.makedirs("photos", exist_ok=True)
-        photo_path = f"photos/{tg_id}_{len(photo_data)}.jpg"
+        photo_path = f"photos/app_{uuid.uuid4().hex[:8]}.jpg"
         with open(photo_path, "wb") as f:
             f.write(photo_data)
             
     async with async_session() as session:
-        user, is_admin, is_banned, ban_reason, muted_until, mute_reason = await get_user_and_check_auth(tg_id, session)
+        # Need to reconstruct data dict from multipart
+        multipart_data = {'user_id': user_id_str, 'sig': sig}
+        if 'token' in request.query: multipart_data['token'] = request.query['token'] # Just in case it's in query
+        if 'token' in locals(): multipart_data['token'] = token
+        
+        user, is_admin, is_banned, ban_reason, muted_until, mute_reason, is_guest = await get_user_from_auth(request, session, multipart_data)
+        if not user or is_guest:
+            return web.json_response({"error": "Unauthorized"}, status=401)
+
         
         if not user:
             user = User(telegram_id=tg_id, username=username)
@@ -257,13 +293,10 @@ async def api_catch_delete(request):
     sig = data.get('sig', '')
     catch_id = data.get('catch_id')
     
-    if not validate_secure_url(user_id, sig):
-        return web.json_response({"error": "Unauthorized"}, status=401)
-        
-    tg_id = int(user_id)
-    
     async with async_session() as session:
-        user, is_admin, is_banned, ban_reason, muted_until, mute_reason = await get_user_and_check_auth(tg_id, session)
+        user, is_admin, is_banned, ban_reason, muted_until, mute_reason, is_guest = await get_user_from_auth(request, session, data)
+        if not user or is_guest:
+            return web.json_response({"error": "Unauthorized"}, status=401)
         
         if is_banned:
             return web.json_response({"error": "Ви забанені."}, status=403)
@@ -296,13 +329,10 @@ async def api_chat_get(request):
     user_id = request.query.get('user_id', '')
     sig = request.query.get('sig', '')
     
-    if not validate_secure_url(user_id, sig):
-        return web.json_response({"error": "Unauthorized"}, status=401)
-        
-    tg_id = int(user_id) if user_id.isdigit() else 0
-        
     async with async_session() as session:
-        user, is_admin, is_banned, ban_reason, muted_until, mute_reason = await get_user_and_check_auth(tg_id, session)
+        user, is_admin, is_banned, ban_reason, muted_until, mute_reason, is_guest = await get_user_from_auth(request, session)
+        if not user:
+            return web.json_response({"error": "Unauthorized"}, status=401)
         
         from sqlalchemy.orm import selectinload
         # Fetch last 50 messages, ordered by oldest to newest for chat UI
@@ -366,19 +396,16 @@ async def api_chat_post(request):
     reply_to_id = data.get('reply_to_id')
     attachment_catch_id = data.get('attachment_catch_id')
     
-    if not validate_secure_url(user_id, sig):
-        return web.json_response({"error": "Unauthorized"}, status=401)
+    async with async_session() as session:
+        user, is_admin, is_banned, ban_reason, muted_until, mute_reason, is_guest = await get_user_from_auth(request, session, data)
+        if not user or is_guest:
+            return web.json_response({"error": "Unauthorized"}, status=401)
         
     if not text:
         return web.json_response({"error": "Empty message"}, status=400)
         
     if len(text) > 500:
         return web.json_response({"error": "Message too long"}, status=400)
-        
-    tg_id = int(user_id)
-    
-    async with async_session() as session:
-        user, is_admin, is_banned, ban_reason, muted_until, mute_reason = await get_user_and_check_auth(tg_id, session)
         
         if not user:
             return web.json_response({"error": "User not found"}, status=404)
@@ -410,13 +437,10 @@ async def api_chat_delete(request):
     sig = data.get('sig', '')
     msg_id = data.get('msg_id')
     
-    if not validate_secure_url(user_id, sig):
-        return web.json_response({"error": "Unauthorized"}, status=401)
-        
-    tg_id = int(user_id)
-    
     async with async_session() as session:
-        user, is_admin, is_banned, ban_reason, muted_until, mute_reason = await get_user_and_check_auth(tg_id, session)
+        user, is_admin, is_banned, ban_reason, muted_until, mute_reason, is_guest = await get_user_from_auth(request, session, data)
+        if not user or is_guest:
+            return web.json_response({"error": "Unauthorized"}, status=401)
         
         if is_banned:
             return web.json_response({"error": "Ви забанені."}, status=403)
@@ -663,6 +687,8 @@ async def start_web_server(port: int = 8080):
     })
     
     # Add API Routes
+    cors.add(app.router.add_post('/api/auth/google', api_auth_google))
+    cors.add(app.router.add_post('/api/auth/telegram', api_auth_telegram))
     cors.add(app.router.add_get('/api/history', api_history))
     cors.add(app.router.add_get('/api/global_map', api_global_map))
     cors.add(app.router.add_post('/api/catch', api_catch))

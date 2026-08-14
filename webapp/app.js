@@ -1,7 +1,49 @@
 let tg = window.Telegram.WebApp;
 const API_URL = "https://api.parafiivka.com.ua";
-tg.expand();
-tg.ready();
+try { tg.expand(); } catch(e) {}
+try { tg.ready(); } catch(e) {}
+
+let appState = {
+    isGuest: false,
+    guestNickname: localStorage.getItem('fishapp_guest_nickname'),
+    token: localStorage.getItem('fishapp_auth_token'),
+    tgUser: tg && tg.initDataUnsafe && tg.initDataUnsafe.user ? tg.initDataUnsafe.user : null
+};
+
+if (!appState.tgUser && !appState.token && !appState.guestNickname) {
+    document.getElementById('auth-modal').style.display = 'flex';
+} else if (!appState.tgUser && appState.guestNickname && !appState.token) {
+    appState.isGuest = true;
+}
+
+function requireAuth() {
+    if (appState.isGuest) {
+        document.getElementById('auth-alert-modal').style.display = 'flex';
+        return false;
+    }
+    return true;
+}
+
+function getAuthQuery() {
+    if (appState.tgUser) return window.location.search;
+    if (appState.token) return "?token=" + encodeURIComponent(appState.token);
+    if (appState.isGuest) return "?guest=" + encodeURIComponent(appState.guestNickname);
+    return '';
+}
+
+function getAuthBody() {
+    if (appState.tgUser) {
+        const urlParams = new URLSearchParams(window.location.search);
+        return { user_id: urlParams.get('user_id'), sig: urlParams.get('sig') };
+    }
+    if (appState.token) return { token: appState.token };
+    if (appState.isGuest) return { guest: appState.guestNickname };
+    return {};
+}
+
+// END OF AUTH PREFIX
+
+
 
 // Apply Telegram theme colors dynamically if they exist
 document.documentElement.style.setProperty('--text-color', tg.themeParams.text_color || '#0f172a');
@@ -64,7 +106,7 @@ document.querySelector('[data-target="tab-history"]').addEventListener('click', 
     window.historyData = [];
     
     try {
-        const queryStr = window.location.search; // Contains ?user_id=...&sig=...
+        const queryStr = getAuthQuery(); // Contains ?user_id=...&sig=...
         const res = await fetch(`${API_URL}/api/history${queryStr}`);
         if (!res.ok) throw new Error("API error");
         const data = await res.json();
@@ -256,9 +298,10 @@ form.addEventListener('submit', async (e) => {
         formData.append('photo', photoInput.files[0]);
     }
     
-    const urlParams = new URLSearchParams(window.location.search);
-    formData.append('user_id', urlParams.get('user_id') || '');
-    formData.append('sig', urlParams.get('sig') || '');
+    const authBody = getAuthBody();
+    if (authBody.user_id) formData.append('user_id', authBody.user_id);
+    if (authBody.sig) formData.append('sig', authBody.sig);
+    if (authBody.token) formData.append('token', authBody.token);
     
     try {
         const res = await fetch(`${API_URL}/api/catch`, {
@@ -433,7 +476,7 @@ async function initGlobalMap() {
     
     // Load data if empty
     if (!window.globalMapData || window.globalMapData.length === 0) {
-        const queryStr = window.location.search;
+        const queryStr = getAuthQuery();
         try {
         const res = await fetch(`${API_URL}/api/global_map${queryStr}`);
         const data = await res.json();
@@ -543,7 +586,7 @@ window.openChatWith = function(username, catchId = null, species = null, weight 
 let chatInterval = null;
 
 async function loadChat() {
-    const queryStr = window.location.search;
+    const queryStr = getAuthQuery();
     try {
         const res = await fetch(`${API_URL}/api/chat${queryStr}`);
         const data = await res.json();
@@ -714,15 +757,13 @@ window.editChatMessage = function(id, text) {
 window.deleteChatMessage = async function(id) {
     if(!confirm("Ви впевнені, що хочете видалити це повідомлення?")) return;
     
-    const urlParams = new URLSearchParams(window.location.search);
-    const user_id = urlParams.get('user_id');
-    const sig = urlParams.get('sig');
+    const authBody = getAuthBody();
     
     try {
         await fetch(`${API_URL}/api/chat`, {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id, sig, msg_id: id })
+            body: JSON.stringify({ ...authBody, msg_id: id })
         });
         loadChat();
     } catch(e) {}
@@ -734,6 +775,7 @@ document.getElementById('chat-input').addEventListener('keypress', (e) => {
 });
 
 window.replyToMessage = function(msgId, username, text) {
+    if (!requireAuth()) return;
     window.cancelChatPreview(); // clear attachments
     document.getElementById('reply-to-id').value = msgId;
     document.getElementById('chat-preview-bar').style.display = 'block';
@@ -752,6 +794,7 @@ window.cancelChatPreview = function() {
 document.getElementById('cancel-preview-btn').addEventListener('click', window.cancelChatPreview);
 
 async function sendChatMessage() {
+    if (!requireAuth()) return;
     const input = document.getElementById('chat-input');
     const msgIdInput = document.getElementById('edit-msg-id');
     const replyIdInput = document.getElementById('reply-to-id');
@@ -769,9 +812,7 @@ async function sendChatMessage() {
     msgIdInput.value = '';
     window.cancelChatPreview();
     
-    const urlParams = new URLSearchParams(window.location.search);
-    const user_id = urlParams.get('user_id');
-    const sig = urlParams.get('sig');
+    const authBody = getAuthBody();
     
     try {
         let res;
@@ -780,14 +821,14 @@ async function sendChatMessage() {
             res = await fetch(`${API_URL}/api/chat`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_id, sig, text, msg_id: msgId })
+                body: JSON.stringify({ ...authBody, text, msg_id: msgId })
             });
         } else {
             // Send new
             res = await fetch(`${API_URL}/api/chat`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_id, sig, text, reply_to_id, attachment_catch_id })
+                body: JSON.stringify({ ...authBody, text, reply_to_id, attachment_catch_id })
             });
         }
         if (!res.ok) {
@@ -822,15 +863,13 @@ window.moderateUser = async function(action) {
     
     if (!target_id) return;
     
-    const urlParams = new URLSearchParams(window.location.search);
-    const user_id = urlParams.get('user_id');
-    const sig = urlParams.get('sig');
+    const authBody = getAuthBody();
     
     try {
         const res = await fetch(`${API_URL}/api/moderate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id, sig, target_id: parseInt(target_id), action, reason })
+            body: JSON.stringify({ ...authBody, target_id: parseInt(target_id), action, reason })
         });
         
         if (res.ok) {
@@ -872,15 +911,13 @@ window.editCatch = function(catchItem) {
 window.deleteCatch = async function(id) {
     if(!confirm("Ви впевнені, що хочете видалити цей улов?")) return;
     
-    const urlParams = new URLSearchParams(window.location.search);
-    const user_id = urlParams.get('user_id');
-    const sig = urlParams.get('sig');
+    const authBody = getAuthBody();
     
     try {
         const res = await fetch(`${API_URL}/api/catch`, {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id, sig, catch_id: id })
+            body: JSON.stringify({ ...authBody, catch_id: id })
         });
         
         if (res.ok) {
@@ -936,22 +973,17 @@ function createModModal() {
 createModModal();
 
 window.likeCatch = async (catchId, event, btnElement) => {
-    if (event) event.stopPropagation(); // Prevent opening modal
+    if (event) event.stopPropagation();
+    if (!requireAuth()) return; // Prevent opening modal
     
     try {
-        const queryStr = window.location.search; // ?user_id=...&sig=...
-        let user_id = "";
-        let sig = "";
-        if (queryStr) {
-            const params = new URLSearchParams(queryStr);
-            user_id = params.get('user_id');
-            sig = params.get('sig');
-        }
+        const queryStr = getAuthQuery(); // ?user_id=...&sig=...
+        const authBody = getAuthBody();
         
         const res = await fetch(`${API_URL}/api/like`, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ user_id, sig, catch_id: catchId })
+            body: JSON.stringify({ ...authBody, catch_id: catchId })
         });
         
         if (!res.ok) throw new Error("API error");
@@ -980,7 +1012,7 @@ document.querySelector('[data-target="tab-leaderboard"]').addEventListener('clic
     list.innerHTML = "<div style='text-align:center; color: #666; font-size: 14px; margin-top: 20px;'>Завантаження рейтингу...</div>";
     
     try {
-        const queryStr = window.location.search;
+        const queryStr = getAuthQuery();
         const res = await fetch(`${API_URL}/api/leaderboard${queryStr}`);
         if (!res.ok) throw new Error("API error");
         const data = await res.json();
@@ -1107,3 +1139,82 @@ window.showLeaderboardPhoto = (index) => {
     document.getElementById('catch-modal').style.display = 'flex';
 };
 
+
+// --- AUTH LOGIC ---
+document.getElementById('btn-guest-login').addEventListener('click', () => {
+    const nick = document.getElementById('guest-nickname').value.trim();
+    if (!nick) {
+        alert("Введіть нікнейм!");
+        return;
+    }
+    localStorage.setItem('fishapp_guest_nickname', nick);
+    appState.guestNickname = nick;
+    appState.isGuest = true;
+    document.getElementById('auth-modal').style.display = 'none';
+    window.location.reload();
+});
+
+// Google Auth Callback
+window.handleGoogleAuth = async function(response) {
+    try {
+        const res = await fetch(`${API_URL}/api/auth/google`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ credential: response.credential })
+        });
+        const data = await res.json();
+        if (data.token) {
+            localStorage.setItem('fishapp_auth_token', data.token);
+            appState.token = data.token;
+            appState.isGuest = false;
+            document.getElementById('auth-modal').style.display = 'none';
+            document.getElementById('auth-alert-modal').style.display = 'none';
+            window.location.reload();
+        } else {
+            alert(data.error || "Помилка авторизації Google");
+        }
+    } catch (e) {
+        alert("Помилка з'єднання");
+    }
+};
+
+// Telegram Login Widget logic
+window.addEventListener('load', () => {
+    if (!appState.tgUser) {
+        const script = document.createElement('script');
+        script.async = true;
+        script.src = "https://telegram.org/js/telegram-widget.js?22";
+        script.setAttribute('data-telegram-login', 'Vlasivkabot'); // <-- Bot username
+        script.setAttribute('data-size', 'large');
+        script.setAttribute('data-onauth', 'onTelegramWidgetAuth(user)');
+        script.setAttribute('data-request-access', 'write');
+        
+        const container = document.getElementById('telegram-login-container');
+        if (container) {
+            container.appendChild(script);
+        }
+    }
+});
+
+window.onTelegramWidgetAuth = async function(user) {
+    try {
+        const res = await fetch(`${API_URL}/api/auth/telegram`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(user)
+        });
+        const data = await res.json();
+        if (data.token) {
+            localStorage.setItem('fishapp_auth_token', data.token);
+            appState.token = data.token;
+            appState.isGuest = false;
+            document.getElementById('auth-modal').style.display = 'none';
+            document.getElementById('auth-alert-modal').style.display = 'none';
+            window.location.reload();
+        } else {
+            alert(data.error || "Помилка авторизації Telegram");
+        }
+    } catch (e) {
+        alert("Помилка з'єднання");
+    }
+};

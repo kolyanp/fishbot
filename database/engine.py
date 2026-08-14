@@ -37,6 +37,15 @@ async def init_db():
             logger.info("Database migration: Added 'reply_to_id' and 'attachment_catch_id' to 'chat_messages'.")
         except Exception:
             pass
+            
+        try:
+            from sqlalchemy import text
+            await conn.execute(text("ALTER TABLE users ADD COLUMN google_id VARCHAR(255)"))
+            await conn.execute(text("ALTER TABLE users ADD COLUMN auth_token VARCHAR(255)"))
+            await conn.execute(text("ALTER TABLE users ALTER COLUMN telegram_id DROP NOT NULL"))
+            logger.info("Database migration: Added 'google_id' and 'auth_token' to 'users'.")
+        except Exception:
+            pass
 
 async def get_session() -> AsyncSession:
     async with async_session() as session:

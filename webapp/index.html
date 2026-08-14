@@ -6,6 +6,8 @@
     <meta name="color-scheme" content="light">
     <title>Щоденник рибалки</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <link rel="manifest" href="manifest.json">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css?v=2">
     <!-- Leaflet CSS -->
@@ -264,6 +266,63 @@
             </div>
         </div>
 
+        <!-- Modal for Guest Login / Auth -->
+        <div id="auth-modal" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 2000; justify-content: center; align-items: center; backdrop-filter: blur(5px);">
+            <div class="modal-content" style="background: white; width: 90%; max-width: 400px; border-radius: 20px; padding: 25px; text-align: center; position: relative;">
+                <h2 style="margin-top: 0; color: #0f172a; font-size: 22px;">Вітаємо! 🎣</h2>
+                <p style="color: #64748b; font-size: 14px; margin-bottom: 20px;">Введіть нікнейм, щоб переглядати улови, або авторизуйтесь для повного доступу.</p>
+                
+                <div style="background: #f1f5f9; padding: 15px; border-radius: 12px; margin-bottom: 20px;">
+                    <input type="text" id="guest-nickname" placeholder="Ваш нікнейм (Гостя)" style="width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 16px; outline: none; margin-bottom: 10px; box-sizing: border-box;">
+                    <button id="btn-guest-login" style="width: 100%; background: #0ea5e9; color: white; border: none; padding: 12px; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer;">Увійти як Гість</button>
+                </div>
+                
+                <div style="margin: 20px 0; display: flex; align-items: center; text-align: center; color: #94a3b8;">
+                    <div style="flex: 1; height: 1px; background: #cbd5e1;"></div>
+                    <span style="padding: 0 10px; font-size: 12px; text-transform: uppercase;">Або повний доступ</span>
+                    <div style="flex: 1; height: 1px; background: #cbd5e1;"></div>
+                </div>
+                
+                <div style="display: flex; flex-direction: column; gap: 10px; align-items: center;">
+                    <!-- Google Login -->
+                    <div id="g_id_onload"
+                         data-client_id="YOUR_GOOGLE_CLIENT_ID"
+                         data-context="signin"
+                         data-ux_mode="popup"
+                         data-callback="handleGoogleAuth"
+                         data-auto_prompt="false">
+                    </div>
+                    <div class="g_id_signin"
+                         data-type="standard"
+                         data-shape="rectangular"
+                         data-theme="outline"
+                         data-text="signin_with"
+                         data-size="large"
+                         data-logo_alignment="left">
+                    </div>
+                    
+                    <!-- Telegram Login -->
+                    <div id="telegram-login-container">
+                        <!-- Script will be injected dynamically to prevent issues -->
+                    </div>
+                </div>
+                
+                <p style="font-size: 11px; color: #94a3b8; margin-top: 20px; line-height: 1.4;">
+                    * Повний доступ дозволяє ділитися уловами, писати в чат та ставити лайки.
+                </p>
+            </div>
+        </div>
+        
+        <!-- Auth Required Alert Modal -->
+        <div id="auth-alert-modal" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 2001; justify-content: center; align-items: center;">
+            <div class="modal-content" style="background: white; width: 85%; max-width: 350px; border-radius: 15px; padding: 20px; text-align: center;">
+                <div style="font-size: 40px; margin-bottom: 10px;">🔒</div>
+                <h3 style="margin-top: 0;">Потрібна авторизація</h3>
+                <p style="color: #64748b; font-size: 14px;">Ця функція доступна лише для авторизованих рибалок.</p>
+                <button onclick="document.getElementById('auth-alert-modal').style.display='none'; document.getElementById('auth-modal').style.display='flex';" style="width: 100%; background: #3b82f6; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; margin-top: 15px; cursor: pointer;">Авторизуватись</button>
+                <button onclick="document.getElementById('auth-alert-modal').style.display='none'" style="width: 100%; background: transparent; color: #64748b; border: none; padding: 10px; margin-top: 5px; cursor: pointer;">Скасувати</button>
+            </div>
+        </div>
     </div>
 
     <!-- Bottom Navigation Bar -->
@@ -294,6 +353,13 @@
         </a>
     </nav>
 
-    <script src="app.js?v=22"></script>
+    <script src="app.js?v=23"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js');
+            });
+        }
+    </script>
 </body>
 </html>
