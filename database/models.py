@@ -39,3 +39,18 @@ class CatchLog(Base):
 
     def __repr__(self):
         return f"<CatchLog(fish_species={self.fish_species}, weight={self.weight})>"
+
+
+class ChatMessage(Base):
+    __tablename__ = 'chat_messages'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    text: Mapped[str] = mapped_column(String(500), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    # Relationship to user
+    user: Mapped["User"] = relationship()
+
+    def __repr__(self):
+        return f"<ChatMessage(id={self.id}, text='{self.text[:20]}')>"

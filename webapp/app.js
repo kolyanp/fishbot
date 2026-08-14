@@ -421,6 +421,7 @@ async function initGlobalMap() {
                         <p style="margin: 2px 0 0 0; font-size:12px;">⚖️ ${c.weight} кг</p>
                         <p style="margin: 2px 0 0 0; font-size:11px; opacity:0.8;">📍 ${c.location}</p>
                         <p style="margin: 2px 0 0 0; font-size:11px; opacity:0.8;">📅 ${date}</p>
+                        <button onclick="document.querySelectorAll('.tab-content').forEach(el=>el.classList.remove('active')); document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active')); document.getElementById('tab-chat').classList.add('active'); document.querySelector('.nav-item[data-target=\'tab-chat\']').classList.add('active'); document.getElementById('chat-input').value='@${c.username.replace('@', '')}, '; document.getElementById('chat-input').focus(); loadChat();" style="margin-top: 8px; width: 100%; background: #3b82f6; color: white; border: none; padding: 5px; border-radius: 5px; cursor: pointer; font-size: 12px;">Написати 💬</button>
                     </div>
                 `;
                 
@@ -451,3 +452,106 @@ document.querySelector('[data-target="tab-map"]').addEventListener('click', init
 
 // Init map immediately on load since it's the active tab
 setTimeout(initGlobalMap, 500);
+
+// --- CHAT LOGIC ---
+let chatInterval = null;
+
+async function loadChat() {
+    const queryStr = window.location.search;
+    try {
+        const res = await fetch(`${API_URL}/api/chat${queryStr}`);
+        const messages = await res.json();
+        
+        const chatContainer = document.getElementById('chat-messages');
+        chatContainer.innerHTML = '';
+        
+        if (messages.length === 0) {
+            chatContainer.innerHTML = '<div style="text-align:center; color: #666; font-size: 14px; margin-top: 20px;">Поки що немає повідомлень. Напишіть першим!</div>';
+            return;
+        }
+        
+        messages.forEach(m => {
+            const isMe = m.user_id.toString() === tg.initDataUnsafe?.user?.id?.toString();
+            
+            const msgDiv = document.createElement('div');
+            msgDiv.style.padding = '8px 12px';
+            msgDiv.style.borderRadius = '15px';
+            msgDiv.style.maxWidth = '80%';
+            msgDiv.style.wordBreak = 'break-word';
+            msgDiv.style.fontSize = '14px';
+            
+            if (isMe) {
+                msgDiv.style.background = '#3b82f6';
+                msgDiv.style.color = 'white';
+                msgDiv.style.alignSelf = 'flex-end';
+                msgDiv.style.borderBottomRightRadius = '5px';
+            } else {
+                msgDiv.style.background = 'white';
+                msgDiv.style.color = '#333';
+                msgDiv.style.alignSelf = 'flex-start';
+                msgDiv.style.borderBottomLeftRadius = '5px';
+                msgDiv.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+            }
+            
+            const nameHtml = !isMe ? `<div style="font-weight: bold; font-size: 11px; color: #0369a1; margin-bottom: 3px;">${m.username}</div>` : '';
+            
+            const timeDate = new Date(m.date);
+            const timeStr = `${timeDate.getHours().toString().padStart(2, '0')}:${timeDate.getMinutes().toString().padStart(2, '0')}`;
+            const timeHtml = `<div style="font-size: 10px; opacity: 0.7; text-align: right; margin-top: 3px;">${timeStr}</div>`;
+            
+            msgDiv.innerHTML = nameHtml + m.text + timeHtml;
+            chatContainer.appendChild(msgDiv);
+        });
+        
+        // Scroll to bottom
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+        
+    } catch (e) {
+        console.error("Chat load error", e);
+    }
+}
+
+document.querySelector('[data-target="tab-chat"]').addEventListener('click', () => {
+    loadChat();
+    if (!chatInterval) {
+        chatInterval = setInterval(loadChat, 3000);
+    }
+});
+
+// Stop polling when leaving chat tab
+document.querySelectorAll('.nav-item').forEach(el => {
+    el.addEventListener('click', (e) => {
+        const target = e.currentTarget.getAttribute('data-target');
+        if (target !== 'tab-chat' && chatInterval) {
+            clearInterval(chatInterval);
+            chatInterval = null;
+        }
+    });
+});
+
+document.getElementById('chat-send-btn').addEventListener('click', async () => {
+    const input = document.getElementById('chat-input');
+    const text = input.value.trim();
+    if (!text) return;
+    
+    // Optimistic clear
+    input.value = '';
+    
+    const tgData = tg.initDataUnsafe || {};
+    const user_id = tgData.user ? tgData.user.id : 0;
+    
+    try {
+        await fetch(`${API_URL}/api/chat`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                user_id: user_id,
+                sig: getQueryParam('sig'),
+                text: text
+            })
+        });
+        loadChat();
+    } catch (e) {
+        alert("Помилка відправки");
+    }
+});

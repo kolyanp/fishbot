@@ -6,7 +6,7 @@ from sqlalchemy import func, desc
 from sqlalchemy.orm import selectinload
 import os
 
-from database.models import User, CatchLog
+from database.models import User, CatchLog, ChatMessage
 from database.engine import async_session
 from config import ADMIN_ID
 
@@ -41,6 +41,7 @@ async def cmd_admin(message: Message):
     admin_kb = InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="👥 Список користувачів", callback_data="admin_users")],
+            [InlineKeyboardButton(text="💬 Лог чату", callback_data="admin_chat_log")],
             [InlineKeyboardButton(text="🎣 Останні 5 уловів", callback_data="admin_recent")],
             [InlineKeyboardButton(text="📦 Завантажити бекап БД", callback_data="admin_backup")]
         ]
@@ -195,3 +196,37 @@ async def cq_admin_users(callback: CallbackQuery):
     # Split message if it's too long for Telegram (max 4096 chars)
     for i in range(0, len(text_content), 4000):
         await callback.message.answer(text_content[i:i+4000], parse_mode="Markdown")
+
+@router.callback_query(F.data == "admin_chat_log")
+async def cq_admin_chat_log(callback: CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        await callback.answer("Ви не адміністратор.", show_alert=True)
+        return
+        
+    await callback.answer()
+    
+    async with async_session() as session:
+        result = await session.execute(
+            select(ChatMessage)
+            .options(selectinload(ChatMessage.user))
+            .order_by(ChatMessage.created_at.desc())
+            .limit(500)
+        )
+        messages = result.scalars().all()
+        
+    if not messages:
+        await callback.message.answer("У чаті поки що немає повідомлень.")
+        return
+        
+    messages.reverse() # Oldest first in the file
+    
+    lines = ["Лог чату (останні 500 повідомлень):\n"]
+    for m in messages:
+        date_str = m.created_at.strftime('%d.%m.%Y %H:%M:%S') if m.created_at else ""
+        username = f"@{m.user.username}" if m.user.username else f"ID:{m.user.telegram_id}"
+        lines.append(f"[{date_str}] {username}: {m.text}")
+        
+    text_content = "\n".join(lines).encode('utf-8')
+    document = BufferedInputFile(text_content, filename="chat_log.txt")
+    
+    await callback.message.answer_document(document, caption="💬 Ось лог останніх повідомлень чату.")

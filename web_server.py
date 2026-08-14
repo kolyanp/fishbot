@@ -9,7 +9,7 @@ from urllib.parse import parse_qsl
 from sqlalchemy.future import select
 from config import BOT_TOKEN
 from database.engine import async_session
-from database.models import User, CatchLog
+from database.models import User, CatchLog, ChatMessage
 
 logger = logging.getLogger(__name__)
 
@@ -192,6 +192,8 @@ async def start_web_server(port: int = 8080):
     cors.add(app.router.add_get('/api/history', api_history))
     cors.add(app.router.add_get('/api/global_map', api_global_map))
     cors.add(app.router.add_post('/api/catch', api_catch))
+    cors.add(app.router.add_get('/api/chat', api_chat_get))
+    cors.add(app.router.add_post('/api/chat', api_chat_post))
     
     # Path to directories
     current_dir = os.path.dirname(os.path.abspath(__file__))
