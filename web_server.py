@@ -380,7 +380,7 @@ async def api_chat_get(request):
         "ban_reason": ban_reason if user else None,
         "muted_until": muted_until.isoformat() if muted_until else None,
         "mute_reason": mute_reason if user else None,
-        "current_user_id": tg_id,
+        "current_user_id": user.telegram_id if user and user.telegram_id else (user.id if user else None),
         "messages": data
     })
 
