@@ -17,8 +17,12 @@ def get_main_keyboard() -> ReplyKeyboardMarkup:
     forecast_btn = KeyboardButton(text="🌦 Прогноз кльову")
     
     if WEBAPP_URL:
+        # Check if WEBAPP_URL already has query params
+        separator = "&" if "?" in WEBAPP_URL else "?"
+        forecast_url = f"{WEBAPP_URL}{separator}tab=forecast"
+        
         add_catch_btn = KeyboardButton(text="🎣 Додати улов", web_app=WebAppInfo(url=WEBAPP_URL))
-        forecast_btn = KeyboardButton(text="🌦 Прогноз кльову", web_app=WebAppInfo(url=WEBAPP_URL))
+        forecast_btn = KeyboardButton(text="🌦 Прогноз кльову", web_app=WebAppInfo(url=forecast_url))
         
     return ReplyKeyboardMarkup(
         keyboard=[

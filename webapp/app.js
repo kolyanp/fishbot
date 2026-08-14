@@ -25,6 +25,15 @@ navItems.forEach(item => {
     });
 });
 
+// Check for URL parameters to open a specific tab
+const urlParams = new URLSearchParams(window.location.search);
+const targetTab = urlParams.get('tab');
+if (targetTab === 'forecast') {
+    // Simulate click on forecast nav item
+    const forecastNav = document.querySelector('[data-target="tab-forecast"]');
+    if (forecastNav) forecastNav.click();
+}
+
 // Form submission for Catch Log
 const form = document.getElementById('catch-form');
 form.addEventListener('submit', (e) => {
