@@ -185,12 +185,13 @@ async def cq_admin_users(callback: CallbackQuery):
         await callback.message.answer("Користувачів не знайдено.")
         return
         
-    lines = ["Список користувачів бота:\n"]
-    for u in users:
+    lines = [f"👥 **Список всіх користувачів ({len(users)} чол.):**\n"]
+    for idx, u in enumerate(users, 1):
         username = f"@{u.username}" if u.username else "без_юзернейму"
-        lines.append(f"ID: {u.telegram_id} | Юзернейм: {username}")
+        lines.append(f"{idx}. ID: `{u.telegram_id}` | {username}")
         
-    text_content = "\n".join(lines).encode('utf-8')
-    document = BufferedInputFile(text_content, filename="users_list.txt")
+    text_content = "\n".join(lines)
     
-    await callback.message.answer_document(document, caption=f"👥 Ось список всіх користувачів ({len(users)} чол.)")
+    # Split message if it's too long for Telegram (max 4096 chars)
+    for i in range(0, len(text_content), 4000):
+        await callback.message.answer(text_content[i:i+4000], parse_mode="Markdown")
