@@ -1,6 +1,6 @@
 from aiogram import Router, F, Bot
 from aiogram.filters import Command
-from aiogram.types import Message, FSInputFile, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
+from aiogram.types import Message, FSInputFile, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, BufferedInputFile
 from sqlalchemy.future import select
 from sqlalchemy import func, desc
 from sqlalchemy.orm import selectinload
@@ -40,6 +40,7 @@ async def cmd_admin(message: Message):
         
     admin_kb = InlineKeyboardMarkup(
         inline_keyboard=[
+            [InlineKeyboardButton(text="👥 Список користувачів", callback_data="admin_users")],
             [InlineKeyboardButton(text="🎣 Останні 5 уловів", callback_data="admin_recent")],
             [InlineKeyboardButton(text="📦 Завантажити бекап БД", callback_data="admin_backup")]
         ]
@@ -167,3 +168,30 @@ async def cq_admin_backup(callback: CallbackQuery):
     msg = callback.message
     msg_copy = msg.model_copy(update={"from_user": callback.from_user})
     await cmd_backup(msg_copy)
+
+@router.callback_query(F.data == "admin_users")
+async def cq_admin_users(callback: CallbackQuery):
+    if not is_admin(callback.from_user.id):
+        await callback.answer("Ви не адміністратор.", show_alert=True)
+        return
+        
+    await callback.answer()
+    
+    async with async_session() as session:
+        result = await session.execute(select(User).order_by(User.id))
+        users = result.scalars().all()
+        
+    if not users:
+        await callback.message.answer("Користувачів не знайдено.")
+        return
+        
+    lines = ["Список користувачів бота:\n"]
+    for u in users:
+        username = f"@{u.username}" if u.username else "без_юзернейму"
+        first_name = u.first_name if u.first_name else ""
+        lines.append(f"ID: {u.telegram_id} | Юзернейм: {username} | Ім'я: {first_name}")
+        
+    text_content = "\n".join(lines).encode('utf-8')
+    document = BufferedInputFile(text_content, filename="users_list.txt")
+    
+    await callback.message.answer_document(document, caption=f"👥 Ось список всіх користувачів ({len(users)} чол.)")
