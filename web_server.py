@@ -560,13 +560,10 @@ async def api_moderate(request):
     return web.json_response({"success": True})
 
 async def api_leaderboard(request):
-    user_id = request.query.get('user_id', '')
-    sig = request.query.get('sig', '')
-    
-    if not validate_secure_url(user_id, sig):
-        return web.json_response({"error": "Unauthorized"}, status=401)
-        
     async with async_session() as session:
+        user, is_admin, is_banned, ban_reason, muted_until, mute_reason, is_guest = await get_user_from_auth(request, session)
+        if not user:
+            return web.json_response({"error": "Unauthorized"}, status=401)
         from database.models import User, CatchLog, CatchLike
         from sqlalchemy import func, desc
         
