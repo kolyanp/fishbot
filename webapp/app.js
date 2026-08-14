@@ -46,7 +46,8 @@ document.querySelector('[data-target="tab-history"]').addEventListener('click', 
     list.innerHTML = '';
     
     try {
-        const res = await fetch(`${API_URL}/api/history?initData=${encodeURIComponent(tg.initData)}`);
+        const queryStr = window.location.search; // Contains ?user_id=...&sig=...
+        const res = await fetch(`${API_URL}/api/history${queryStr}`);
         if (!res.ok) throw new Error("API error");
         const data = await res.json();
         
@@ -96,6 +97,10 @@ form.addEventListener('submit', async (e) => {
     if (photoInput.files.length > 0) {
         formData.append('photo', photoInput.files[0]);
     }
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    formData.append('user_id', urlParams.get('user_id') || '');
+    formData.append('sig', urlParams.get('sig') || '');
     
     try {
         const res = await fetch(`${API_URL}/api/catch`, {

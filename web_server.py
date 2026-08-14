@@ -13,33 +13,24 @@ from database.models import User, CatchLog
 
 logger = logging.getLogger(__name__)
 
-def validate_init_data(init_data: str) -> dict | None:
+def validate_secure_url(user_id: str, sig: str) -> bool:
+    if not user_id or not sig:
+        return False
     try:
-        parsed = dict(parse_qsl(init_data))
-        if 'hash' not in parsed:
-            return None
-            
-        hash_val = parsed.pop('hash')
-        data_check_string = '\n'.join(f"{k}={v}" for k, v in sorted(parsed.items()))
-        
-        secret_key = hmac.new(b"WebAppData", BOT_TOKEN.encode(), hashlib.sha256).digest()
-        calc_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
-        
-        if calc_hash == hash_val:
-            user_str = parsed.get('user', '{}')
-            return json.loads(user_str)
+        expected_sig = hmac.new(BOT_TOKEN.encode(), str(user_id).encode(), hashlib.sha256).hexdigest()
+        return hmac.compare_digest(expected_sig, sig)
     except Exception as e:
         logger.error(f"Validation error: {e}")
-    return None
+        return False
 
 async def api_history(request):
-    init_data = request.query.get('initData', '')
-    user_data = validate_init_data(init_data)
+    user_id = request.query.get('user_id', '')
+    sig = request.query.get('sig', '')
     
-    if not user_data:
+    if not validate_secure_url(user_id, sig):
         return web.json_response({"error": "Unauthorized"}, status=401)
         
-    tg_id = user_data.get('id')
+    tg_id = int(user_id)
     
     async with async_session() as session:
         result = await session.execute(select(User).filter_by(telegram_id=tg_id))
@@ -67,7 +58,8 @@ async def api_catch(request):
     # Process multipart form data
     reader = await request.multipart()
     
-    init_data = None
+    user_id_str = ""
+    sig = ""
     species = ""
     weight = 0.0
     bait = ""
@@ -78,9 +70,12 @@ async def api_catch(request):
         if field is None:
             break
             
-        if field.name == 'initData':
-            init_data = await field.read(decode=True)
-            init_data = init_data.decode()
+        if field.name == 'user_id':
+            val = await field.read(decode=True)
+            user_id_str = val.decode()
+        elif field.name == 'sig':
+            val = await field.read(decode=True)
+            sig = val.decode()
         elif field.name == 'species':
             val = await field.read(decode=True)
             species = val.decode()
@@ -93,12 +88,11 @@ async def api_catch(request):
         elif field.name == 'photo' and field.filename:
             photo_data = await field.read()
 
-    user_data = validate_init_data(init_data)
-    if not user_data:
+    if not validate_secure_url(user_id_str, sig):
         return web.json_response({"error": "Unauthorized"}, status=401)
         
-    tg_id = user_data.get('id')
-    username = user_data.get('username')
+    tg_id = int(user_id_str)
+    username = f"user_{tg_id}" # Fallback since we don't get username in URL
     
     # Save photo (For simplicity, we save it locally for now)
     photo_path = None

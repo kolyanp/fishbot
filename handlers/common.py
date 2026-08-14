@@ -1,10 +1,12 @@
 from aiogram import Router, F
 from aiogram.filters import CommandStart, Command
-from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
 from aiogram.types.web_app_info import WebAppInfo
 from sqlalchemy.future import select
 import json
-from config import WEBAPP_URL
+import hmac
+import hashlib
+from config import WEBAPP_URL, BOT_TOKEN
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.models import User
@@ -12,29 +14,23 @@ from database.engine import async_session
 
 router = Router()
 
-def get_main_keyboard() -> ReplyKeyboardMarkup:
+def generate_secure_url(user_id: int, tab: str = None) -> str:
+    if not WEBAPP_URL:
+        return ""
+    sig = hmac.new(BOT_TOKEN.encode(), str(user_id).encode(), hashlib.sha256).hexdigest()
+    separator = "&" if "?" in WEBAPP_URL else "?"
+    url = f"{WEBAPP_URL}{separator}user_id={user_id}&sig={sig}"
+    if tab:
+        url += f"&tab={tab}"
+    return url
+
+def get_main_keyboard(user_id: int) -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="📱 Відкрити додаток")],
-            [KeyboardButton(text="📖 Довідка")]
+            [KeyboardButton(text="🎣 ПОЧАТИ", web_app=WebAppInfo(url=generate_secure_url(user_id)))]
         ],
         resize_keyboard=True
     )
-
-def get_inline_webapp_keyboard() -> InlineKeyboardMarkup:
-    if not WEBAPP_URL:
-        return None
-        
-    separator = "&" if "?" in WEBAPP_URL else "?"
-    forecast_url = f"{WEBAPP_URL}{separator}tab=forecast"
-    
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="🎣 Мій Щоденник та Історія", web_app=WebAppInfo(url=WEBAPP_URL))],
-            [InlineKeyboardButton(text="🌦 Прогноз кльову", web_app=WebAppInfo(url=forecast_url))]
-        ]
-    )
-
 
 @router.message(CommandStart())
 async def cmd_start(message: Message):
@@ -54,17 +50,9 @@ async def cmd_start(message: Message):
     await message.answer(
         f"Привіт, {message.from_user.first_name}! 🎣\n\n"
         "Я твій особистий бот-помічник для риболовлі.\n"
-        "Зі мною ти можеш вести свій 'Щоденник рибалки' та переглядати прогноз кльову.\n\n"
-        "👇 Натискай на кнопки нижче, щоб відкрити додаток!",
-        reply_markup=get_inline_webapp_keyboard()
+        "Натискай кнопку «ПОЧАТИ» нижче, щоб відкрити додаток!",
+        reply_markup=get_main_keyboard(message.from_user.id)
     )
-    
-    # Send reply keyboard too just in case
-    await message.answer("Або використовуй меню:", reply_markup=get_main_keyboard())
-
-@router.message(F.text == "📱 Відкрити додаток")
-async def cmd_open_app(message: Message):
-    await message.answer("👇 Відкривай додаток за кнопками нижче:", reply_markup=get_inline_webapp_keyboard())
 
 @router.message(Command("help"))
 @router.message(F.text == "📖 Довідка")
