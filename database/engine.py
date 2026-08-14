@@ -47,6 +47,18 @@ async def init_db():
         except Exception:
             pass
 
+        try:
+            from sqlalchemy import text
+            await conn.execute(text("ALTER TABLE users ADD COLUMN is_banned BOOLEAN DEFAULT 0"))
+            await conn.execute(text("ALTER TABLE users ADD COLUMN ban_reason VARCHAR(255)"))
+            await conn.execute(text("ALTER TABLE users ADD COLUMN muted_until DATETIME"))
+            await conn.execute(text("ALTER TABLE users ADD COLUMN mute_reason VARCHAR(255)"))
+            await conn.execute(text("ALTER TABLE users ADD COLUMN is_moderator BOOLEAN DEFAULT 0"))
+            await conn.execute(text("ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT 0"))
+            logger.info("Database migration: Added moderation fields to 'users'.")
+        except Exception:
+            pass
+
 async def get_session() -> AsyncSession:
     async with async_session() as session:
         yield session
