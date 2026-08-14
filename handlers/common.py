@@ -1,6 +1,6 @@
 from aiogram import Router, F
 from aiogram.filters import CommandStart, Command
-from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
+from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.types.web_app_info import WebAppInfo
 from sqlalchemy.future import select
 import json
@@ -13,23 +13,26 @@ from database.engine import async_session
 router = Router()
 
 def get_main_keyboard() -> ReplyKeyboardMarkup:
-    add_catch_btn = KeyboardButton(text="🎣 Додати улов")
-    forecast_btn = KeyboardButton(text="🌦 Прогноз кльову")
-    
-    if WEBAPP_URL:
-        # Check if WEBAPP_URL already has query params
-        separator = "&" if "?" in WEBAPP_URL else "?"
-        forecast_url = f"{WEBAPP_URL}{separator}tab=forecast"
-        
-        add_catch_btn = KeyboardButton(text="🎣 Додати улов", web_app=WebAppInfo(url=WEBAPP_URL))
-        forecast_btn = KeyboardButton(text="🌦 Прогноз кльову", web_app=WebAppInfo(url=forecast_url))
-        
     return ReplyKeyboardMarkup(
         keyboard=[
-            [add_catch_btn, forecast_btn],
+            [KeyboardButton(text="📱 Відкрити додаток")],
             [KeyboardButton(text="📖 Довідка")]
         ],
         resize_keyboard=True
+    )
+
+def get_inline_webapp_keyboard() -> InlineKeyboardMarkup:
+    if not WEBAPP_URL:
+        return None
+        
+    separator = "&" if "?" in WEBAPP_URL else "?"
+    forecast_url = f"{WEBAPP_URL}{separator}tab=forecast"
+    
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🎣 Мій Щоденник та Історія", web_app=WebAppInfo(url=WEBAPP_URL))],
+            [InlineKeyboardButton(text="🌦 Прогноз кльову", web_app=WebAppInfo(url=forecast_url))]
+        ]
     )
 
 
@@ -52,9 +55,16 @@ async def cmd_start(message: Message):
         f"Привіт, {message.from_user.first_name}! 🎣\n\n"
         "Я твій особистий бот-помічник для риболовлі.\n"
         "Зі мною ти можеш вести свій 'Щоденник рибалки' та переглядати прогноз кльову.\n\n"
-        "Обирай дію в меню нижче 👇",
-        reply_markup=get_main_keyboard()
+        "👇 Натискай на кнопки нижче, щоб відкрити додаток!",
+        reply_markup=get_inline_webapp_keyboard()
     )
+    
+    # Send reply keyboard too just in case
+    await message.answer("Або використовуй меню:", reply_markup=get_main_keyboard())
+
+@router.message(F.text == "📱 Відкрити додаток")
+async def cmd_open_app(message: Message):
+    await message.answer("👇 Відкривай додаток за кнопками нижче:", reply_markup=get_inline_webapp_keyboard())
 
 @router.message(Command("help"))
 @router.message(F.text == "📖 Довідка")
