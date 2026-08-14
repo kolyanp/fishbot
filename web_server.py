@@ -49,6 +49,7 @@ async def api_history(request):
             "species": c.fish_species,
             "weight": c.weight,
             "bait": c.bait,
+            "location": c.location,
             "date": c.created_at.isoformat() if c.created_at else None,
             "photo_url": f"/{c.photo_id}" if c.photo_id else None
         } for c in catches]
@@ -64,6 +65,7 @@ async def api_catch(request):
     species = ""
     weight = 0.0
     bait = ""
+    location = ""
     photo_data = None
     
     while True:
@@ -86,6 +88,9 @@ async def api_catch(request):
         elif field.name == 'bait':
             val = await field.read(decode=True)
             bait = val.decode()
+        elif field.name == 'location':
+            val = await field.read(decode=True)
+            location = val.decode()
         elif field.name == 'photo' and field.filename:
             photo_data = await field.read()
 
@@ -117,6 +122,7 @@ async def api_catch(request):
             fish_species=species,
             weight=weight,
             bait=bait,
+            location=location,
             photo_id=photo_path
         )
         session.add(new_log)

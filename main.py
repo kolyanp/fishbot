@@ -16,6 +16,8 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
 )
 
+
+
 async def set_default_commands(bot: Bot):
     await bot.set_my_commands([
         BotCommand(command="start", description="Почати роботу"),

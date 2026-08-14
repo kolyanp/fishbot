@@ -28,6 +28,7 @@ class CatchLog(Base):
     fish_species: Mapped[str] = mapped_column(String(255), nullable=False)
     weight: Mapped[float] = mapped_column(Float, nullable=True)
     bait: Mapped[str] = mapped_column(String(255), nullable=True)
+    location: Mapped[str] = mapped_column(String(255), nullable=True)
     photo_id: Mapped[str] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 

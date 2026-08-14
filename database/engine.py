@@ -13,6 +13,15 @@ async def init_db():
         # Create all tables
         await conn.run_sync(Base.metadata.create_all)
         logger.info("Database initialized successfully.")
+        
+        # Safe migration: Add location column to existing catch_logs table
+        try:
+            from sqlalchemy import text
+            await conn.execute(text("ALTER TABLE catch_logs ADD COLUMN location VARCHAR(255)"))
+            logger.info("Database migration: Added 'location' column to 'catch_logs'.")
+        except Exception:
+            # Column already exists or table structure error, safe to ignore
+            pass
 
 async def get_session() -> AsyncSession:
     async with async_session() as session:

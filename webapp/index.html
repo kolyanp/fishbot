@@ -14,11 +14,11 @@
         <!-- Tab 1: Додати улов (Logbook) -->
         <div id="tab-log" class="tab-content active">
             <div class="glass-container">
-                <header>
-                    <div class="icon">🎣</div>
-                    <h1>Додати улов</h1>
-                    <p>Запишіть свої досягнення</p>
-                </header>
+        <!-- Header -->
+        <header class="header">
+            <h1 style="margin: 0; font-size: 24px;">🎣 Щоденник Рибалки</h1>
+            <p style="margin: 5px 0 0 0; font-size: 14px; opacity: 0.9;">Додаток для мого Тата) ❤️</p>
+        </header>
 
                 <form id="catch-form">
                     <div class="form-group">
@@ -41,10 +41,15 @@
                     </div>
 
                     <div class="form-group">
-                        <label for="bait">Наживка / Приманка</label>
-                        <input type="text" id="bait" name="bait" placeholder="На що спіймали?" required>
+                        <label for="bait">Наживка</label>
+                        <input type="text" id="bait" required placeholder="Наприклад: Опариш">
                     </div>
-
+                    
+                    <div class="form-group">
+                        <label for="location">Місце лову (необов'язково)</label>
+                        <input type="text" id="location" placeholder="Наприклад: Ставок біля лісу">
+                    </div>
+                    
                     <div class="form-group">
                         <label for="photo">Фото трофею (необов'язково)</label>
                         <input type="file" id="photo" name="photo" accept="image/*">
@@ -127,6 +132,23 @@
                 
                 <div id="history-list">
                     <!-- History cards will be injected here -->
+                </div>
+            </div>
+        </div>
+        
+        <!-- Modal for Catch Details -->
+        <div id="catch-modal" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center;">
+            <div class="modal-content" style="background: white; width: 90%; max-height: 90%; border-radius: 15px; padding: 20px; overflow-y: auto; position: relative;">
+                <button id="close-modal-btn" style="position: absolute; top: 15px; right: 15px; background: #e2e8f0; border: none; width: 30px; height: 30px; border-radius: 15px; font-weight: bold; font-size: 16px;">✕</button>
+                <h2 id="modal-species" style="margin-top: 0; color: #0f172a;">Риба</h2>
+                <div id="modal-photo-container" style="width: 100%; text-align: center; margin-bottom: 15px;">
+                    <!-- Photo injected here -->
+                </div>
+                <div style="background: #f1f5f9; padding: 15px; border-radius: 10px;">
+                    <p style="margin: 5px 0;"><strong>Вага:</strong> <span id="modal-weight"></span> кг</p>
+                    <p style="margin: 5px 0;"><strong>Наживка:</strong> <span id="modal-bait"></span></p>
+                    <p style="margin: 5px 0;"><strong>Місце лову:</strong> <span id="modal-location"></span></p>
+                    <p style="margin: 5px 0;"><strong>Дата:</strong> <span id="modal-date"></span></p>
                 </div>
             </div>
         </div>

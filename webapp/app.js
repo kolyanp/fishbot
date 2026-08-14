@@ -62,22 +62,58 @@ document.querySelector('[data-target="tab-history"]').addEventListener('click', 
             const date = new Date(catchItem.date).toLocaleDateString('uk-UA');
             
             let photoHtml = '';
+            let photoUrl = '';
             if (catchItem.photo_url) {
-                photoHtml = `<img src="${API_URL}${catchItem.photo_url}" style="width: 70px; height: 70px; object-fit: cover; border-radius: 8px; margin-right: 15px;" alt="Трофей">`;
+                photoUrl = `${API_URL}${catchItem.photo_url}`;
+                photoHtml = `<img src="${photoUrl}" style="width: 70px; height: 70px; object-fit: cover; border-radius: 8px; margin-right: 15px;" alt="Трофей">`;
             }
             
-            list.innerHTML += `
-                <div class="weather-item" style="width:100%; margin-bottom:10px; display:flex; flex-direction:row; align-items:center;">
-                    ${photoHtml}
-                    <div style="flex-grow: 1;">
-                        <strong>${catchItem.species}</strong><br>
-                        <small>${catchItem.weight} кг | ${catchItem.bait}</small>
-                    </div>
-                    <div style="text-align:right;">
-                        <small>${date}</small>
-                    </div>
+            const locationText = catchItem.location ? catchItem.location : 'Не вказано';
+            
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'weather-item';
+            itemDiv.style.cssText = 'width:100%; margin-bottom:10px; display:flex; flex-direction:row; align-items:center; cursor:pointer;';
+            itemDiv.innerHTML = `
+                ${photoHtml}
+                <div style="flex-grow: 1;">
+                    <strong>${catchItem.species}</strong><br>
+                    <small>${catchItem.weight} кг | ${catchItem.bait}</small>
+                </div>
+                <div style="text-align:right;">
+                    <small>${date}</small>
                 </div>
             `;
+            
+            itemDiv.addEventListener('click', () => {
+                document.getElementById('modal-species').innerText = catchItem.species;
+                document.getElementById('modal-weight').innerText = catchItem.weight;
+                document.getElementById('modal-bait').innerText = catchItem.bait;
+                document.getElementById('modal-location').innerText = locationText;
+                document.getElementById('modal-date').innerText = date;
+                
+                const photoContainer = document.getElementById('modal-photo-container');
+                if (photoUrl) {
+                    photoContainer.innerHTML = `<img src="${photoUrl}" style="max-width: 100%; max-height: 50vh; border-radius: 10px; object-fit: contain;">`;
+                } else {
+                    photoContainer.innerHTML = `<div style="padding: 20px; background: #f1f5f9; border-radius: 10px; color: #64748b;">Фото відсутнє</div>`;
+                }
+                
+                document.getElementById('catch-modal').style.display = 'flex';
+            });
+            
+            list.appendChild(itemDiv);
+        });
+        
+        document.getElementById('close-modal-btn').addEventListener('click', () => {
+            document.getElementById('catch-modal').style.display = 'none';
+        });
+        
+        // Close modal when clicking outside
+        window.addEventListener('click', (e) => {
+            const modal = document.getElementById('catch-modal');
+            if (e.target === modal) {
+                modal.style.display = 'none';
+            }
         });
     } catch (e) {
         loading.style.display = 'none';
@@ -99,6 +135,7 @@ form.addEventListener('submit', async (e) => {
     formData.append('species', document.getElementById('species').value);
     formData.append('weight', document.getElementById('weight').value);
     formData.append('bait', document.getElementById('bait').value);
+    formData.append('location', document.getElementById('location').value);
     
     const photoInput = document.getElementById('photo');
     if (photoInput.files.length > 0) {
