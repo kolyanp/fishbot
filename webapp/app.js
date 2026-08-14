@@ -11,9 +11,9 @@ window.customAlert = function(msg) {
     }
 };
 
-const urlParams = new URLSearchParams(window.location.search);
-const urlUserId = urlParams.get('user_id');
-const urlSig = urlParams.get('sig');
+const authUrlParams = new URLSearchParams(window.location.search);
+const urlUserId = authUrlParams.get('user_id');
+const urlSig = authUrlParams.get('sig');
 
 let appState = {
     isGuest: false,
