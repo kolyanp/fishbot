@@ -1,0 +1,8 @@
+.env
+__pycache__/
+*.pyc
+fishbot.db
+*.db
+.venv/
+venv/
+env/

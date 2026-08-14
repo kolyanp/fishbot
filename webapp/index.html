@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Щоденник рибалки</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="glass-container">
+        <header>
+            <div class="icon">🎣</div>
+            <h1>Додати улов</h1>
+            <p>Запишіть свої досягнення</p>
+        </header>
+
+        <form id="catch-form">
+            <div class="form-group">
+                <label for="species">Вид риби</label>
+                <select id="species" name="species" required>
+                    <option value="" disabled selected>Оберіть рибу...</option>
+                    <option value="Щука">Щука</option>
+                    <option value="Короп">Короп</option>
+                    <option value="Карась">Карась</option>
+                    <option value="Окунь">Окунь</option>
+                    <option value="Судак">Судак</option>
+                    <option value="Лящ">Лящ</option>
+                    <option value="Інша">Інша...</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="weight">Вага (кг)</label>
+                <input type="number" id="weight" name="weight" step="0.1" min="0" placeholder="Наприклад, 1.5" required>
+            </div>
+
+            <div class="form-group">
+                <label for="bait">Наживка / Приманка</label>
+                <input type="text" id="bait" name="bait" placeholder="На що спіймали?" required>
+            </div>
+
+            <button type="submit" class="submit-btn" id="submit-btn">Зберегти улов</button>
+        </form>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
