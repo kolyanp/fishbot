@@ -1,6 +1,7 @@
 from aiogram import Router, F, Bot
 from aiogram.filters import Command
 from aiogram.types import Message, FSInputFile, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, BufferedInputFile
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 from sqlalchemy.future import select
 from sqlalchemy import func, desc
 from sqlalchemy.orm import selectinload
