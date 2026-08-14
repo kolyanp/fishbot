@@ -554,8 +554,9 @@ document.getElementById('chat-send-btn').addEventListener('click', async () => {
     // Optimistic clear
     input.value = '';
     
-    const tgData = tg.initDataUnsafe || {};
-    const user_id = tgData.user ? tgData.user.id : 0;
+    const urlParams = new URLSearchParams(window.location.search);
+    const user_id = urlParams.get('user_id');
+    const sig = urlParams.get('sig');
     
     try {
         await fetch(`${API_URL}/api/chat`, {
@@ -563,7 +564,7 @@ document.getElementById('chat-send-btn').addEventListener('click', async () => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 user_id: user_id,
-                sig: new URLSearchParams(window.location.search).get('sig'),
+                sig: sig,
                 text: text
             })
         });
