@@ -188,8 +188,7 @@ async def cq_admin_users(callback: CallbackQuery):
     lines = ["Список користувачів бота:\n"]
     for u in users:
         username = f"@{u.username}" if u.username else "без_юзернейму"
-        first_name = u.first_name if u.first_name else ""
-        lines.append(f"ID: {u.telegram_id} | Юзернейм: {username} | Ім'я: {first_name}")
+        lines.append(f"ID: {u.telegram_id} | Юзернейм: {username}")
         
     text_content = "\n".join(lines).encode('utf-8')
     document = BufferedInputFile(text_content, filename="users_list.txt")
