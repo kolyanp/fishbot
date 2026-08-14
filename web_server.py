@@ -786,6 +786,8 @@ async def start_web_server(port: int = 8080):
     cors.add(app.router.add_get('/api/leaderboard', api_leaderboard))
     cors.add(app.router.add_post('/api/like', api_like))
     cors.add(app.router.add_get('/api/bot_info', api_bot_info))
+    cors.add(app.router.add_post('/api/users', api_users))
+    cors.add(app.router.add_post('/api/set_mod', api_set_mod))
     
     # Path to directories
     current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -898,6 +900,3 @@ async def api_set_mod(request):
         await session.commit()
         
     return web.json_response({"success": True})
-
-app.router.add_post('/api/users', api_users)
-app.router.add_post('/api/set_mod', api_set_mod)
