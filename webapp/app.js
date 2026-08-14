@@ -38,6 +38,25 @@ if (addCatchMapBtn) {
     });
 }
 
+// Logout Button Logic
+const logoutBtn = document.getElementById('btn-logout');
+if (logoutBtn) {
+    logoutBtn.addEventListener('click', () => {
+        if (!confirm('Ви дійсно хочете вийти з акаунту?')) return;
+        localStorage.clear();
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                for(let registration of registrations) {
+                    registration.unregister();
+                }
+            });
+        }
+        setTimeout(() => {
+            window.location.href = window.location.pathname + '?clear=' + new Date().getTime();
+        }, 500);
+    });
+}
+
 function requireAuth() {
     if (appState.isGuest) {
         document.getElementById('auth-alert-modal').style.display = 'flex';
