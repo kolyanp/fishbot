@@ -9,7 +9,7 @@ from database.engine import init_db
 from web_server import start_web_server
 
 # Handlers
-from handlers import common, logbook, forecast
+from handlers import common, logbook, forecast, admin
 
 logging.basicConfig(
     level=logging.INFO,
@@ -33,12 +33,13 @@ async def main():
     await init_db()
     
     # Start Web Server for Mini App
-    runner = await start_web_server(port=8080)
+    runner = await start_web_server(port=10007)
 
     bot = Bot(token=BOT_TOKEN)
     dp = Dispatcher(storage=MemoryStorage())
 
     # Include routers
+    dp.include_router(admin.router)
     dp.include_router(common.router)
     dp.include_router(logbook.router)
     dp.include_router(forecast.router)

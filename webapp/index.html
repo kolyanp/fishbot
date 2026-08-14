@@ -45,6 +45,11 @@
                         <input type="text" id="bait" name="bait" placeholder="На що спіймали?" required>
                     </div>
 
+                    <div class="form-group">
+                        <label for="photo">Фото трофею (необов'язково)</label>
+                        <input type="file" id="photo" name="photo" accept="image/*">
+                    </div>
+
                     <button type="submit" class="submit-btn" id="submit-btn">Зберегти улов</button>
                 </form>
             </div>
@@ -106,6 +111,26 @@
             </div>
         </div>
 
+        <!-- Tab 3: Мої улови (History) -->
+        <div id="tab-history" class="tab-content">
+            <div class="glass-container">
+                <header>
+                    <div class="icon">📸</div>
+                    <h1>Мої улови</h1>
+                    <p>Історія ваших досягнень</p>
+                </header>
+                
+                <div id="history-loading" style="display: none; text-align: center; padding: 20px;">
+                    <div class="spinner">⏳</div>
+                    <p>Завантажуємо історію...</p>
+                </div>
+                
+                <div id="history-list">
+                    <!-- History cards will be injected here -->
+                </div>
+            </div>
+        </div>
+
     </div>
 
     <!-- Bottom Navigation Bar -->
@@ -114,12 +139,16 @@
             <span class="nav-icon">📝</span>
             <span class="nav-text">Щоденник</span>
         </a>
+        <a href="#" class="nav-item" data-target="tab-history">
+            <span class="nav-icon">📸</span>
+            <span class="nav-text">Історія</span>
+        </a>
         <a href="#" class="nav-item" data-target="tab-forecast">
             <span class="nav-icon">🌤</span>
             <span class="nav-text">Прогноз</span>
         </a>
     </nav>
 
-    <script src="app.js?v=3"></script>
+    <script src="app.js?v=6"></script>
 </body>
 </html>

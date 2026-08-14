@@ -1,4 +1,5 @@
 let tg = window.Telegram.WebApp;
+const API_URL = "https://api.parafiivka.com.ua";
 tg.expand();
 tg.ready();
 
@@ -29,23 +30,91 @@ navItems.forEach(item => {
 const urlParams = new URLSearchParams(window.location.search);
 const targetTab = urlParams.get('tab');
 if (targetTab === 'forecast') {
-    // Simulate click on forecast nav item
     const forecastNav = document.querySelector('[data-target="tab-forecast"]');
     if (forecastNav) forecastNav.click();
+} else if (targetTab === 'history') {
+    const historyNav = document.querySelector('[data-target="tab-history"]');
+    if (historyNav) historyNav.click();
 }
+
+// Load History when tab is clicked
+document.querySelector('[data-target="tab-history"]').addEventListener('click', async () => {
+    const loading = document.getElementById('history-loading');
+    const list = document.getElementById('history-list');
+    
+    loading.style.display = 'block';
+    list.innerHTML = '';
+    
+    try {
+        const res = await fetch(`${API_URL}/api/history?initData=${encodeURIComponent(tg.initData)}`);
+        if (!res.ok) throw new Error("API error");
+        const data = await res.json();
+        
+        loading.style.display = 'none';
+        
+        if (data.length === 0) {
+            list.innerHTML = "<p style='text-align:center;'>Ви ще нічого не спіймали 😢</p>";
+            return;
+        }
+        
+        data.forEach(catchItem => {
+            const date = new Date(catchItem.date).toLocaleDateString('uk-UA');
+            list.innerHTML += `
+                <div class="weather-item" style="width:100%; margin-bottom:10px; flex-direction:row; justify-content:space-between; align-items:center;">
+                    <div>
+                        <strong>${catchItem.species}</strong><br>
+                        <small>${catchItem.weight} кг | ${catchItem.bait}</small>
+                    </div>
+                    <div style="text-align:right;">
+                        <small>${date}</small>
+                    </div>
+                </div>
+            `;
+        });
+    } catch (e) {
+        loading.style.display = 'none';
+        list.innerHTML = "<p style='text-align:center;color:red;'>Помилка завантаження (перевірте налаштування домену)</p>";
+    }
+});
 
 // Form submission for Catch Log
 const form = document.getElementById('catch-form');
-form.addEventListener('submit', (e) => {
+form.addEventListener('submit', async (e) => {
     e.preventDefault();
     
-    const data = {
-        species: document.getElementById('species').value,
-        weight: parseFloat(document.getElementById('weight').value),
-        bait: document.getElementById('bait').value
-    };
+    const submitBtn = document.getElementById('submit-btn');
+    submitBtn.innerText = "Зберігаємо...";
+    submitBtn.disabled = true;
     
-    tg.sendData(JSON.stringify(data));
+    const formData = new FormData();
+    formData.append('initData', tg.initData);
+    formData.append('species', document.getElementById('species').value);
+    formData.append('weight', document.getElementById('weight').value);
+    formData.append('bait', document.getElementById('bait').value);
+    
+    const photoInput = document.getElementById('photo');
+    if (photoInput.files.length > 0) {
+        formData.append('photo', photoInput.files[0]);
+    }
+    
+    try {
+        const res = await fetch(`${API_URL}/api/catch`, {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (res.ok) {
+            tg.showAlert("✅ Улов успішно збережено!");
+            form.reset();
+        } else {
+            tg.showAlert("❌ Помилка збереження (перевірте налаштування домену)");
+        }
+    } catch (err) {
+        tg.showAlert("❌ Помилка мережі (перевірте налаштування домену)");
+    }
+    
+    submitBtn.innerText = "Зберегти улов";
+    submitBtn.disabled = false;
 });
 
 // Forecast Logic

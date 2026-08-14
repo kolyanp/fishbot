@@ -9,3 +9,4 @@ if not BOT_TOKEN:
 
 DB_URL = os.getenv("DB_URL", "sqlite+aiosqlite:///fishbot.db")
 WEBAPP_URL = os.getenv("WEBAPP_URL", "")
+ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
