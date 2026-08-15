@@ -488,16 +488,13 @@ async def api_chat_put(request):
     msg_id = data.get('msg_id')
     text = data.get('text', '').strip()
     
-    if not validate_secure_url(user_id, sig):
-        return web.json_response({"error": "Unauthorized"}, status=401)
-        
     if not text:
         return web.json_response({"error": "Empty message"}, status=400)
         
-    tg_id = int(user_id)
-    
     async with async_session() as session:
-        user, is_admin, is_banned, ban_reason, muted_until, mute_reason = await get_user_and_check_auth(tg_id, session)
+        user, is_admin, is_banned, ban_reason, muted_until, mute_reason, is_guest = await get_user_from_auth(request, session, data)
+        if not user or is_guest:
+            return web.json_response({"error": "Unauthorized"}, status=401)
         
         if is_banned:
             return web.json_response({"error": "Ви забанені."}, status=403)
@@ -511,10 +508,7 @@ async def api_chat_put(request):
         if not msg:
             return web.json_response({"error": "Not found"}, status=404)
             
-        result = await session.execute(select(User).filter_by(id=msg.user_id))
-        owner = result.scalar_one_or_none()
-        
-        if owner.telegram_id != tg_id and not is_admin:
+        if msg.user_id != user.id and not is_admin:
             return web.json_response({"error": "Forbidden"}, status=403)
             
         msg.text = text
@@ -534,13 +528,10 @@ async def api_moderate(request):
     action = data.get('action')
     reason = data.get('reason', '')
     
-    if not validate_secure_url(user_id, sig):
-        return web.json_response({"error": "Unauthorized"}, status=401)
-        
-    tg_id = int(user_id)
-    
     async with async_session() as session:
-        user, is_admin, _, _, _, _ = await get_user_and_check_auth(tg_id, session)
+        user, is_admin, is_banned, ban_reason, muted_until, mute_reason, is_guest = await get_user_from_auth(request, session, data)
+        if not user or is_guest:
+            return web.json_response({"error": "Unauthorized"}, status=401)
         
         if not is_admin:
             return web.json_response({"error": "Forbidden"}, status=403)

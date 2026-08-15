@@ -211,7 +211,8 @@ async def cq_admin_users(callback: CallbackQuery):
     builder = InlineKeyboardBuilder()
     
     for u in page_users:
-        username = f"@{u.username}" if u.username else "без_юзернейму"
+        raw_username = u.username if u.username else "без_юзернейму"
+        username = f"@{raw_username}".replace("_", "\\_").replace("*", "\\*") if u.username else "без\\_юзернейму"
         status = ""
         if getattr(u, 'is_banned', False): status = "🛑"
         elif getattr(u, 'muted_until', None): status = "🔇"
@@ -457,7 +458,8 @@ async def cq_mod_user(callback: CallbackQuery):
         await callback.answer("Користувача не знайдено.", show_alert=True)
         return
         
-    username = f"@{target.username}" if target.username else "без_юзернейму"
+    raw_uname = target.username if target.username else "без_юзернейму"
+    username = f"@{raw_uname}".replace("_", "\\_").replace("*", "\\*") if target.username else "без\\_юзернейму"
     status = "Нормальний"
     if target.is_banned:
         status = "🛑 ЗАБАНЕНИЙ"
@@ -527,7 +529,8 @@ async def cq_mod_act(callback: CallbackQuery):
     await callback.answer(msg, show_alert=True)
     
     # Refresh the mod menu text to show new status
-    username = f"@{target.username}" if target.username else "без_юзернейму"
+    raw_uname = target.username if target.username else "без_юзернейму"
+    username = f"@{raw_uname}".replace("_", "\\_").replace("*", "\\*") if target.username else "без\\_юзернейму"
     status = "Нормальний"
     if target.is_banned:
         status = "🛑 ЗАБАНЕНИЙ"
