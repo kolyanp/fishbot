@@ -855,8 +855,13 @@ if (emojiBar) {
         const btn = document.createElement('div');
         btn.innerText = emoji;
         btn.style.cursor = 'pointer';
-        btn.style.fontSize = '20px';
-        btn.style.padding = '2px 5px';
+        btn.style.fontSize = '24px';
+        btn.style.padding = '5px 8px';
+        btn.style.lineHeight = '1.2';
+        btn.style.display = 'inline-flex';
+        btn.style.alignItems = 'center';
+        btn.style.justifyContent = 'center';
+        btn.style.borderRadius = '8px';
         btn.addEventListener('click', () => {
             const input = document.getElementById('chat-input');
             input.value += emoji;
