@@ -1,8 +1,10 @@
-const CACHE_NAME = 'fishapp-cache-v16';
+const CACHE_NAME = 'fishapp-cache-v20';
 const urlsToCache = [
-  './index.html?v=16',
-  './style.css?v=16',
-  './app.js?v=16'
+  '/',
+  '/index.html',
+  '/style.css',
+  '/app.js',
+  '/manifest.json'
 ];
 
 self.addEventListener('install', event => {
@@ -30,15 +32,27 @@ self.addEventListener('activate', event => {
   );
 });
 
+// Stale-While-Revalidate strategy for better performance
 self.addEventListener('fetch', event => {
+  // Only cache GET requests
+  if (event.request.method !== 'GET') return;
+  
   event.respondWith(
-    caches.match(event.request, { ignoreSearch: true })
-      .then(response => {
-        if (response) {
-          return response;
+    caches.match(event.request, { ignoreSearch: true }).then(cachedResponse => {
+      const fetchPromise = fetch(event.request).then(networkResponse => {
+        if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+          const responseToCache = networkResponse.clone();
+          caches.open(CACHE_NAME).then(cache => {
+            cache.put(event.request, responseToCache);
+          });
         }
-        return fetch(event.request);
-      }
-    )
+        return networkResponse;
+      }).catch(() => {
+        // Fallback for network failure (already handled by returning cachedResponse if exists)
+      });
+
+      // Return cached response immediately if available, while updating cache in background
+      return cachedResponse || fetchPromise;
+    })
   );
 });

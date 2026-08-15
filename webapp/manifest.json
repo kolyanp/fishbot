@@ -2,7 +2,7 @@
   "name": "Щоденник рибалки",
   "short_name": "Рибалка",
   "description": "Додаток для рибалок",
-  "start_url": "/index.html",
+  "start_url": "/",
   "display": "standalone",
   "background_color": "#0ea5e9",
   "theme_color": "#0ea5e9",

@@ -4,12 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="color-scheme" content="light">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0ea5e9">
     <title>Щоденник рибалки</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <link rel="manifest" href="manifest.json">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=2">
+    <link rel="stylesheet" href="style.css?v=19">
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <!-- Leaflet JS -->
@@ -35,10 +39,10 @@
         <div id="tab-log" class="tab-content">
             <div class="glass-container">
         <!-- Header -->
-        <header class="header" style="position: relative;">
-            <h1 style="margin: 0; font-size: 24px;">🎣 Щоденник Рибалки</h1>
+        <header class="header" style="position: relative; text-align: center; margin-bottom: 20px;">
+            <button id="btn-logout" style="position: absolute; right: 0; top: -10px; background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); padding: 6px 12px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 12px; backdrop-filter: blur(5px);">🚪 Вийти</button>
+            <h1 style="margin: 0; font-size: 24px; padding-top: 15px;">🎣 Щоденник Рибалки</h1>
             <p style="margin: 5px 0 0 0; font-size: 14px; opacity: 0.9;">Додаток для мого Тата) ❤️</p>
-            <button id="btn-logout" style="position: absolute; right: 15px; top: 25px; background: rgba(255,255,255,0.3); color: white; border: 1px solid rgba(255,255,255,0.5); padding: 5px 10px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 12px; backdrop-filter: blur(5px);">🚪 Вийти</button>
         </header>
 
                 <form id="catch-form">
@@ -97,6 +101,9 @@
                     </div>
 
                     <button type="submit" class="submit-btn" id="submit-btn">Зберегти улов</button>
+                    <div style="text-align: center; margin-top: 15px; font-size: 11px; color: #64748b;">
+                        Автор: kolyanp
+                    </div>
                 </form>
             </div>
         </div>
@@ -343,7 +350,7 @@
                 <div style="display: flex; flex-direction: column; gap: 10px; align-items: center;">
                     <!-- Google Login -->
                     <div id="g_id_onload"
-                         data-client_id="YOUR_GOOGLE_CLIENT_ID"
+                         data-client_id="108958715706-bf0mk5che7cutijbc9qt6gk1rq0fslrn.apps.googleusercontent.com"
                          data-context="signin"
                          data-ux_mode="popup"
                          data-callback="handleGoogleAuth"
@@ -369,7 +376,8 @@
                 </div>
                 
                 <p style="font-size: 11px; color: #94a3b8; margin-top: 20px; line-height: 1.4;">
-                    * Повний доступ дозволяє ділитися уловами, писати в чат та ставити лайки.
+                    * Повний доступ дозволяє ділитися уловами, писати в чат та ставити лайки.<br>
+                    Автор: kolyanp
                 </p>
             </div>
         </div>
@@ -418,11 +426,11 @@
         </a>
     </nav>
 
-    <script src="app.js?v=18"></script>
+    <script src="app.js?v=19"></script>
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js?v=17');
+                navigator.serviceWorker.register('./sw.js?v=19');
             });
         }
     </script>
