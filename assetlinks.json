@@ -1,8 +1,8 @@
 [{
-  "relation": ["delegate_permission/common.handle_all_urls"],
-  "target": {
-    "namespace": "android_app",
-    "package_name": "ua.com.parafiivka.api.twa",
-    "sha256_cert_fingerprints": ["79:BA:15:22:54:9E:AE:52:56:BC:5F:F3:9A:1B:42:52:1B:47:11:33:F7:DF:1B:A6:BB:E5:76:51:A2:E3:97:F1"]
-  }
-}]
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "ua.com.parafiivka.api.twa",
+        "sha256_cert_fingerprints": ["2F:40:2F:20:B1:7B:6F:4C:B5:91:D2:60:4F:40:62:97:9C:A1:EA:30:51:13:2A:5A:0E:35:BA:DD:07:06:1C:52"]
+      }
+    }]
